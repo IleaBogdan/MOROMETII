@@ -84,3 +84,4 @@ export const useDynamicTheme = (): MD3Theme => {
     },
   };
 };
+export const theme = useDynamicTheme();
