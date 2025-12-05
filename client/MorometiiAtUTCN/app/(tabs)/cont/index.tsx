@@ -1,9 +1,381 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    StyleSheet,
+    ScrollView,
+    Alert,
+    ActivityIndicator,
+    Modal,
+} from "react-native";
+import { Picker } from "@react-native-picker/picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
+import { useDynamicTheme } from "@/theme/theme";
+import { MaterialIcons } from "@expo/vector-icons";
+
+const theme = useDynamicTheme();
+
+interface UserData {
+    username: string;
+    email: string;
+    is_validated: boolean;
+    certification_mode: string | null;
+}
 
 const AccountPage: React.FC = () => {
+    const [userData, setUserData] = useState<UserData | null>(null);
+    const [photoModalVisible, setPhotoModalVisible] = useState(false);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+    useEffect(() => {
+        loadUserData();
+    }, []);
+
+    const loadUserData = async () => {
+        try {
+            const username = await AsyncStorage.getItem("username");
+            const email = await AsyncStorage.getItem("email");
+            const is_validated = await AsyncStorage.getItem("is_validated");
+            const certification_mode = await AsyncStorage.getItem("certification_mode");
+            {/*
+            
+            setUserData({
+                username: username || "",
+                email: email || "",
+                is_validated: is_validated === "true",
+                certification_mode: certification_mode || null,
+            });
+
+            */}
+            setUserData({
+                username: username || "",
+                email: email || "",
+                is_validated: is_validated === "true",
+                certification_mode: certification_mode || null,
+            });
+        } catch (error) {
+            console.error("Error loading user data:", error);
+            Alert.alert("Eroare", "Nu s-au putut încărca datele utilizatorului");
+        }
+    };
+
+    const handleDiplomaUpload = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 1,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                await uploadDiplomaPhoto(result.assets[0].uri);
+            }
+        } catch (error) {
+            Alert.alert("Eroare", "Eroare la selectarea imaginii");
+        }
+    };
+
+    const handleTakePhoto = async () => {
+        try {
+            const result = await ImagePicker.launchCameraAsync({
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 1,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                await uploadDiplomaPhoto(result.assets[0].uri);
+            }
+        } catch (error) {
+            Alert.alert("Eroare", "Eroare la fotografiere");
+        }
+    };
+
+    const uploadDiplomaPhoto = async (photoUri: string) => {
+        if (!userData) return;
+
+        setUploadingPhoto(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", {
+                uri: photoUri,
+                type: "image/jpeg",
+                name: `diploma_${userData.username}.jpg`,
+            } as any);
+            formData.append("username", userData.username);
+            formData.append("email", userData.email);
+
+            const response = await fetch("https://api.example.com/upload-diploma", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            });
+
+            if (response.ok) {
+                await AsyncStorage.setItem("certification_mode", "diploma");
+                await AsyncStorage.setItem("is_validated", "true");
+                setUserData(prev => prev ? { ...prev, certification_mode: "diploma", is_validated: true } : null);
+                Alert.alert("Succes!", "Diploma a fost încărcată cu succes");
+                setPhotoModalVisible(false);
+            } else {
+                Alert.alert("Eroare", "Nu s-a putut încărca diploma");
+            }
+        } catch (error) {
+            Alert.alert("Eroare", "Eroare la încărcarea diplomei");
+            console.error(error);
+        } finally {
+            setUploadingPhoto(false);
+        }
+    };
+
+    const handleSelectCertification = (type: string) => {
+        if (type === "diploma") {
+            setPhotoModalVisible(true);
+        }
+    };
+
+    if (!userData) {
+        return <ActivityIndicator size="large" color={theme.colors.primary} />;
+    }
+
     return (
-        <></>
+        <ScrollView style={styles.container}>
+            {/* User Info */}
+            <View style={styles.userInfoSection}>
+                <Text style={styles.userGreeting}>Bine ai venit, {userData.username}!</Text>
+                <Text style={styles.userEmail}>{userData.email}</Text>
+                {userData.is_validated && (
+                    <Text style={styles.certifiedBadge}>✓ Certificat</Text>
+                )}
+            </View>
+
+            
+
+            {/* Certification Packages */}
+            {/* !userData.certification_mode || !userData.is_validated */}
+            {(!userData.certification_mode) && (
+                <View style={styles.packagesSection}>
+                    {/* Certification Info */}
+                    <View style={styles.certificationInfo}>
+                        <Text style={styles.infoTitle}>De ce este necesară certificarea?</Text>
+                        <Text style={styles.infoDescription}>
+                            Pentru a crea un sistem funcțional și încredințat, utilizatorii care doresc să activeze în calitate de voluntari trebuie să ne prezinte certificatul emis de o organizație de voluntari (ex: Crucea Roșie) care atestă faptul că știu cum să acorde primul ajutor.
+                        </Text>
+                        <Text style={styles.infoDescription}>
+                            Certificatul tău garantează că ești pregătit pentru situații de urgență și că poți ajuta în mod eficient și sigur.
+                        </Text>
+                    
+                        <Text style={styles.sectionTitle}>Prezintă-ți Certificatul:</Text>
+
+                        {/* Diploma Package */}
+                        <TouchableOpacity
+                            style={styles.packageCard}
+                            onPress={() => handleSelectCertification("diploma")}
+                        >
+                            <Text style={styles.packageTitle}>Certificat de Voluntar</Text>
+                            <Text style={styles.packageDescription}>
+                                Încarcă certificatul emis de o organizație recunoscută care atestă că ești pregătit pentru prim ajutor
+                            </Text>
+                            <View style={styles.photo_icon}>
+                                <MaterialIcons name="photo-camera" size={40} color="white"/>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+            {(!userData.is_validated && userData.certification_mode) && (
+                <View style={styles.packagesSection}>
+                    {/* Certification Info */}
+                    <View style={styles.verificareInfo}>
+                        <Text style={styles.infoTitle}>Certificare în curs de procesare!</Text>
+                        <Text style={styles.infoDescription}>
+                            Te rugăm să aștepți până când unui dintre adminisratorii noștrii iți validează certificatul furnizar!
+                        </Text>
+                        <Text style={styles.infoDescription}>
+                            Certificatul tău garantează că ești pregătit pentru situații de urgență și că poți ajuta în mod eficient și sigur.
+                        </Text>
+                    
+                        <Text style={styles.sectionTitle}>Ne vedem în curând...</Text>
+                    </View>
+                </View>
+            )}
+
+            {/* Photo Upload Modal - Diploma */}
+            <Modal visible={photoModalVisible} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Încarcă Diploma</Text>
+                        
+                        {uploadingPhoto ? (
+                            <ActivityIndicator size="large" color={theme.colors.primary} />
+                        ) : (
+                            <>
+                                <TouchableOpacity
+                                    style={styles.modalButton}
+                                    onPress={handleTakePhoto}
+                                >
+                                    <Text style={styles.modalButtonText}>Fă o Fotografie</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.modalButton}
+                                    onPress={handleDiplomaUpload}
+                                >
+                                    <Text style={styles.modalButtonText}>Selectează din Galerie</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+
+                        <TouchableOpacity
+                            style={styles.modalCloseButton}
+                            onPress={() => setPhotoModalVisible(false)}
+                        >
+                            <Text style={styles.modalCloseButtonText}>Anulează</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        </ScrollView>
     );
-}
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+        padding: 20,
+    },
+    photo_icon:{
+        flex: 1,                 // Fill the screen
+        justifyContent: 'center', // Center vertically
+        alignItems: 'center',     // Center horizontally (X-axis)
+    },
+    userInfoSection: {
+        marginBottom: 30,
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.outline,
+    },
+    userGreeting: {
+        fontSize: 24,
+        fontWeight: "bold",
+        color: theme.colors.outline,
+        marginBottom: 5,
+    },
+    userEmail: {
+        fontSize: 14,
+        color: theme.colors.outline,
+        marginBottom: 10,
+    },
+    certifiedBadge: {
+        fontSize: 14,
+        color: "#4CAF50",
+        fontWeight: "bold",
+    },
+    certificationInfo: {
+        backgroundColor: theme.colors.backdrop,
+        borderRadius: 12,
+        padding: 15,
+        marginBottom: 30,
+    },
+    verificareInfo: {
+        backgroundColor: theme.colors.inversePrimary,
+        borderRadius: 12,
+        padding: 15,
+        marginBottom: 30,
+    },
+    infoTitle: {
+        fontSize: 22,
+        fontWeight: "bold",
+        color: "#fff",
+        marginBottom: 10,
+    },
+    infoDescription: {
+        fontSize: 14,
+        color: "#fff",
+        lineHeight: 20,
+    },
+    packagesSection: {
+        marginBottom: 30,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: theme.colors.inverseSurface,
+        marginBottom: 15,
+        marginTop:15,
+    },
+    packageCard: {
+        backgroundColor: theme.colors.secondary,
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 15,
+    },
+    packageTitle: {
+        fontSize: 22,
+        fontWeight: "bold",
+        color: "#fff",
+        marginBottom: 10,
+    },
+    packageDescription: {
+        fontSize: 14,
+        color: "#fff",
+        marginBottom: 15,
+        lineHeight: 20,
+    },
+    packageAction: {
+        fontSize: 14,
+        fontWeight: "bold",
+        color: "#FFD700",
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        justifyContent: "flex-end",
+    },
+    modalContent: {
+        backgroundColor: theme.colors.background,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        minHeight: 300,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: theme.colors.outline,
+        marginBottom: 20,
+        textAlign: "center",
+    },
+    modalButton: {
+        backgroundColor: theme.colors.primary,
+        borderRadius: 8,
+        padding: 15,
+        marginBottom: 12,
+        alignItems: "center",
+    },
+    modalButtonText: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "bold",
+    },
+    modalCloseButton: {
+        backgroundColor: theme.colors.error,
+        borderRadius: 8,
+        padding: 15,
+        alignItems: "center",
+        marginTop: 10,
+    },
+    modalCloseButtonText: {
+        color: theme.colors.background,
+        fontSize: 16,
+        fontWeight: "bold",
+    },
+});
 
 export default AccountPage;

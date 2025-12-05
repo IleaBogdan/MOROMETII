@@ -14,7 +14,7 @@ const SignInPage: React.FC = () => {
     const router = useRouter();
 
     const handleRedirectToSignUp = () => {
-        router.push("/(tabs)/signup");
+        router.push("/(tabs)/signup" as RelativePathString);
     };
 
     const handleSignIn = async () => {
