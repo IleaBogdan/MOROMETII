@@ -26,8 +26,10 @@ else
     });
 }
 
-string sql_connect = string.Format("Server={0}\\SQLEXPRESS;Database=MOROMETII;Trusted_Connection=True;", ip);
+string sql_connect = null;
+sql_connect = string.Format("Server={0}\\SQLEXPRESS;Database=MOROMETII;Trusted_Connection=True;", ip);
 server.Controllers.UserValidator.set_connection(sql_connect);
+server.Controllers.Emergency.set_connection(sql_connect);
 
 // Add services to the container.
 
