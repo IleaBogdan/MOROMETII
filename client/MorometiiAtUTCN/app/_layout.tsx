@@ -1,24 +1,38 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useDynamicTheme } from '@/theme/theme';
+// import {
+//   MontserratAlternates_100Thin,
+//   MontserratAlternates_300Light,
+//   MontserratAlternates_400Regular,
+//   MontserratAlternates_500Medium,
+//   useFonts,
+// } from '@expo-google-fonts/montserrat-alternates';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { PaperProvider } from 'react-native-paper';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  // const [fontsLoaded] = useFonts({
+  //   'MontserratAlternates-Thin': MontserratAlternates_100Thin,
+  //   'MontserratAlternates-Light': MontserratAlternates_300Light,
+  //   'MontserratAlternates-Regular': MontserratAlternates_400Regular,
+  //   'MontserratAlternates-Medium': MontserratAlternates_500Medium,
+  //   'Montserrat Alternates': MontserratAlternates_400Regular,
+  // });
+
+  // if (!fontsLoaded) {
+  //   return null;
+  // }
+  const theme = useDynamicTheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+    <PaperProvider theme={theme}>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: theme.colors.primary },
+          headerTintColor: theme.colors.onPrimary,
+        }}
+      >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    </PaperProvider>
   );
 }
