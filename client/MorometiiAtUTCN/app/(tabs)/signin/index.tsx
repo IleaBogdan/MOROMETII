@@ -1,0 +1,161 @@
+import React, { useState } from "react";
+import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
+import { RelativePathString, useRouter } from "expo-router";
+import { useDynamicTheme } from "@/theme/theme";
+import { Route } from "expo-router/build/Route";
+
+const theme = useDynamicTheme();
+
+const SignInPage: React.FC = () => {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+    const router = useRouter();
+
+    const handleRedirectToSignUp = () => {
+        router.push("/(tabs)/signup");
+    };
+
+    const handleSignIn = async () => {
+        if (!email.trim() || !password.trim()) {
+            Alert.alert("Eroare!", "Te rugam să completezi toate câmpurile!");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // API call to database (placeholder)
+            const response = await fetch("https://api.example.com/signin", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    email,
+                    password,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.exists) {
+                // User exists, navigate to HomePage
+                router.push("/(tabs)/home" as RelativePathString);
+            } else {
+                Alert.alert("Eroare de Autentificare!", "Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!");
+            }
+        } catch (error) {
+            Alert.alert("Eroare", "A apărut o eroare la autentificare!");
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <View style={styles.container}>
+            <Text style={styles.title}>Autentificare</Text>
+
+            <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor="#999"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                editable={!loading}
+            />
+
+            <TextInput
+                style={styles.input}
+                placeholder="Parolă"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!loading}
+            />
+
+            <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleSignIn}
+                disabled={loading}
+            >
+                {loading ? (
+                    <ActivityIndicator color="#fff" />
+                ) : (
+                    <Text style={styles.buttonText}>Autentificare</Text>
+                )}
+            </TouchableOpacity>
+
+            <View style={styles.signupPrompt}>
+                <Text style = {styles.bottom_text}>
+                    Nu ai un cont? 
+                </Text>
+                <TouchableOpacity onPress={handleRedirectToSignUp}><Text style={styles.signupLink}>Crează acum!</Text></TouchableOpacity>
+            </View>
+
+        </View>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 20,
+        backgroundColor: theme.colors.background,
+    },
+    title: {
+        fontSize: 28,
+        fontWeight: "bold",
+        marginBottom: 30,
+        color: theme.colors.outline,
+    },
+    input: {
+        width: "100%",
+        height: 50,
+        backgroundColor: "#fff",
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        marginBottom: 15,
+        borderColor: "#ddd",
+        borderWidth: 1,
+        fontSize: 16,
+        color: "#333",
+    },
+    button: {
+        width: "100%",
+        height: 50,
+        backgroundColor: theme.colors.primary,
+        borderRadius: 8,
+        justifyContent: "center",
+        alignItems: "center",
+        marginTop: 20,
+    },
+    bottom_text: {
+        color:"white",
+    },
+    buttonDisabled: {
+        backgroundColor: "#ccc",
+    },
+    buttonText: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "bold",
+    },
+    signupPrompt: {
+        flexDirection: "row",
+        marginTop: 20,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    signupLink: {
+        color: theme.colors.secondary,
+        fontWeight: "bold",
+        marginLeft: 5,
+    },
+});
+
+export default SignInPage;
