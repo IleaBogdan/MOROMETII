@@ -1,4 +1,33 @@
+using System.Net;
+using System.Net.Sockets;
+using System.Data.SqlTypes;
+using server;
+
 var builder = WebApplication.CreateBuilder(args);
+
+var ip = Dns.GetHostAddresses(Dns.GetHostName())
+    .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
+
+if (ip != null)
+{
+    Console.WriteLine($"Listening on {ip}:5024");
+    builder.WebHost.ConfigureKestrel(serverOptions =>
+    {
+        serverOptions.Listen(ip, 5024);
+    });
+}
+else
+{
+    // Fallback: listen on all interfaces
+    Console.WriteLine("No suitable IPv4 address found, listening on all interfaces.");
+    builder.WebHost.ConfigureKestrel(serverOptions =>
+    {
+        serverOptions.ListenAnyIP(5024);
+    });
+}
+
+string sql_connect = string.Format("Server={0}\\SQLEXPRESS;Database=MOROMETII;Trusted_Connection=True;", ip);
+server.Controllers.UserValidator.set_connection(sql_connect);
 
 // Add services to the container.
 
@@ -15,6 +44,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseCors(options => {
+    //options.AllowAnyMethod().AllowAnyHeader().WithOrigins("http://localhost:3000");
+    //options.AllowAnyMethod().AllowAnyHeader().WithOrigins("http://localhost:8081");
+    options.AllowAnyMethod()
+           .AllowAnyHeader()
+           .WithOrigins("http://localhost:3000", "http://localhost:8081", "http://localhost:8081/Game",
+                        "http://192.168.3.113");
+});
 
 app.UseAuthorization();
 
