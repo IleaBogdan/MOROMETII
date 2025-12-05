@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Reflection.Metadata.Ecma335;
 using server;
+using server.Models;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -10,6 +11,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace server.Controllers
 {
@@ -33,6 +37,11 @@ namespace server.Controllers
         [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
         public IActionResult CheckLogin(string Email,string Password)
         {
+            // Instead of File.AppendAllText, use StreamWriter
+            using (var writer = new StreamWriter("log.txt", true))
+            {
+                writer.WriteLine($"Login attempt: {Email} at {DateTime.Now}");
+            }
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
@@ -64,6 +73,17 @@ namespace server.Controllers
                     IsValid = false
                 });
             }
+        }
+        [HttpPost]
+        [Route("SignUp")]
+        [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+        public IActionResult SignUp([FromBody]SignUpRequest req)
+        {
+            return Ok(new LoginResponse
+            {
+                Error = "Can't do that",
+                IsValid = false
+            });
         }
     }
 }
