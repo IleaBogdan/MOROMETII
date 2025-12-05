@@ -13,7 +13,6 @@ export default function RootLayout() {
           headerTintColor: theme.colors.onSecondary,
         }}
       >
-        {/* FIRST: index */}
         <Stack.Screen name="index" options={{ headerShown: false }} />
 
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

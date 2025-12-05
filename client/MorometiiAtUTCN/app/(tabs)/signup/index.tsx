@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { RelativePathString, useRouter } from "expo-router";
 import { useDynamicTheme } from "@/theme/theme";
 
 
@@ -23,8 +23,8 @@ const SignUpPage: React.FC = () => {
             Alert.alert("Eroare", "Te rugăm să completezi toate câmpurile!");
             return;
         }
-        if (password != confirmpassword){
-            Alert.alert("Eroare","Te rugăm să te asiguri că parola este corectă!");
+        if (password != confirmpassword) {
+            Alert.alert("Eroare", "Te rugăm să te asiguri că parola este corectă!");
             return;
         }
 
@@ -47,11 +47,11 @@ const SignUpPage: React.FC = () => {
 
             if (response.ok && data.exists) {
                 // User exists, navigate to HomePage
-                router.push("/(tabs)/home");
-            } 
-            if (!response.ok){
+                router.push("/(tabs)/acasa" as RelativePathString);
+            }
+            if (!response.ok) {
                 Alert.alert("Eroare de Înregistrare", "Acest nume de utilizator este deja folosit!");
-            }else {
+            } else {
                 Alert.alert("Eroare de Înregistrare", "A apărut o eroare la înregistrare!");
             }
         } catch (error) {
@@ -118,8 +118,8 @@ const SignUpPage: React.FC = () => {
             </TouchableOpacity>
 
             <View style={styles.signupPrompt}>
-                <Text style = {styles.bottom_text}>
-                    Ai un cont deja? 
+                <Text style={styles.bottom_text}>
+                    Ai un cont deja?
                 </Text>
                 <TouchableOpacity onPress={handleRedirectToSignUp}><Text style={styles.signupLink}>Autentifică-te!</Text></TouchableOpacity>
             </View>
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
         marginLeft: 5,
     },
     bottom_text: {
-        color:"white",
+        color: "white",
     },
     signupPrompt: {
         flexDirection: "row",

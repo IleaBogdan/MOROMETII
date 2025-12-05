@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
 import { RelativePathString, useRouter } from "expo-router";
-import { useDynamicTheme } from "@/theme/theme";
-import { Route } from "expo-router/build/Route";
+import { theme } from '@/theme/theme'
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const theme = useDynamicTheme();
+
 
 const SignInPage: React.FC = () => {
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -17,36 +18,61 @@ const SignInPage: React.FC = () => {
     };
 
     const handleSignIn = async () => {
-        if (!email.trim() || !password.trim()) {
-            Alert.alert("Eroare!", "Te rugam să completezi toate câmpurile!");
-            return;
-        }
+
+        const API_BASE = "http://192.168.127.182:5024";
 
         setLoading(true);
+
         try {
-            // API call to database (placeholder)
-            const response = await fetch("https://api.example.com/signin", {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    email,
-                    password,
-                }),
+
+            const encodedEmail = (email.trim());
+
+            const encodedPassword = (password.trim());
+
+            const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodedEmail}&Password=${encodedPassword}`;
+
+            console.log("🔵 Attempting connection to:", url);
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
+
+
 
             const data = await response.json();
 
-            if (response.ok && data.exists) {
-                // User exists, navigate to HomePage
-                router.push("/(tabs)/home" as RelativePathString);
+
+            if (response.ok && data.isValid) {
+                await AsyncStorage.multiSet([
+                    ['email', email.trim()],
+                    ['password', password.trim()]
+                ]);
+                router.push("/(tabs)/acasa" as RelativePathString);
             } else {
-                Alert.alert("Eroare de Autentificare!", "Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!");
+                Alert.alert(
+                    "Eroare de Autentificare!",
+                    "Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!"
+                );
             }
-        } catch (error) {
-            Alert.alert("Eroare", "A apărut o eroare la autentificare!");
-            console.error(error);
+        } catch (error: any) {
+
+            if (error.name === 'AbortError') {
+                Alert.alert(
+                    "Timeout",
+                    "Serverul nu răspunde. Verifică:\n• IP-ul serverului\n• Firewall-ul\n• Conexiunea la rețea"
+                );
+            } else {
+                Alert.alert(
+                    "Eroare de Rețea",
+                    `Nu se poate conecta la server.\n\nIP Server: 192.168.127.182:5024\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni`
+                );
+            }
         } finally {
             setLoading(false);
         }
@@ -89,8 +115,8 @@ const SignInPage: React.FC = () => {
             </TouchableOpacity>
 
             <View style={styles.signupPrompt}>
-                <Text style = {styles.bottom_text}>
-                    Nu ai un cont? 
+                <Text style={styles.bottom_text}>
+                    Nu ai un cont?
                 </Text>
                 <TouchableOpacity onPress={handleRedirectToSignUp}><Text style={styles.signupLink}>Crează acum!</Text></TouchableOpacity>
             </View>
@@ -99,7 +125,9 @@ const SignInPage: React.FC = () => {
     );
 };
 
+
 const styles = StyleSheet.create({
+
     container: {
         flex: 1,
         justifyContent: "center",
@@ -135,7 +163,7 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     bottom_text: {
-        color:"white",
+        color: "white",
     },
     buttonDisabled: {
         backgroundColor: "#ccc",

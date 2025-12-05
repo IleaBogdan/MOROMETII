@@ -1,11 +1,12 @@
-import { Tabs, usePathname, RelativePathString, Link } from 'expo-router';
+import { Tabs, usePathname, RelativePathString } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useDynamicTheme } from '@/theme/theme';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Appbar } from 'react-native-paper';
 import React, { useEffect } from 'react';
 import { router } from 'expo-router';
 import { addToHistory, getPrevPath } from '@/history/navigationHistory';
+
 export const TopBar: React.FC = () => {
   const theme = useDynamicTheme();
   const pathname = usePathname();
@@ -20,14 +21,13 @@ export const TopBar: React.FC = () => {
   }, [pathname]);
 
   const canGoBack = () => {
-    return pathname !== '/(tabs)/home' && pathname !== '/(tabs)';
+    return pathname !== '/(tabs)/acasa' && pathname !== '/(tabs)';
   };
 
   return (
     <Appbar.Header
       style={[styles.header, { backgroundColor: theme.colors.background }]}
     >
-      {/* BACK BUTTON */}
       {canGoBack() ? (
         <Appbar.BackAction
           onPress={() => {
@@ -38,15 +38,11 @@ export const TopBar: React.FC = () => {
       ) : (
         <Appbar.Action icon="menu" color="transparent" />
       )}
-
-      {/* CENTER TITLE */}
       <Appbar.Content title={pageName} style={{ alignItems: 'center' }} />
-
-      {/* ACCOUNT BUTTON ON RIGHT */}
       <Appbar.Action
         icon="account-circle"
         color={theme.colors.primary}
-        onPress={() => router.push("/(tabs)/account" as RelativePathString)}
+        onPress={() => router.push("/(tabs)/cont" as RelativePathString)}
       />
     </Appbar.Header>
   );
@@ -71,9 +67,6 @@ const stylesHeader = StyleSheet.create({
   },
 });
 
-/* ------------------------------------------------------- */
-/*                     BOTTOM BAR                           */
-/* ------------------------------------------------------- */
 const BottomBar: React.FC = () => {
   const theme = useDynamicTheme();
   const pathname = usePathname();
@@ -84,7 +77,7 @@ const BottomBar: React.FC = () => {
     // { key: 'harta', label: 'Hartă', icon: 'map' },
     // { key: 'raporteaza', label: 'Raportează', icon: 'alert-circle' },
     // { key: 'settings', label: 'Setări', icon: 'settings' },
-    { key: 'home', label: 'Acasă', icon: 'home' },
+    { key: 'acasa', label: 'Acasă', icon: 'home' },
   ];
 
   return (
@@ -127,9 +120,6 @@ const stylesBottom = StyleSheet.create({
   },
 });
 
-/* ------------------------------------------------------- */
-/*                    TAB LAYOUT MAIN                       */
-/* ------------------------------------------------------- */
 const TabLayout = () => {
   return (
     <Tabs
