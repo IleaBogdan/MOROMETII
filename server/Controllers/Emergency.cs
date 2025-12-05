@@ -23,6 +23,7 @@ namespace server.Controllers
         }
         public class EmergencyObject
         {
+            public int Id { get; set; }
             public string Name { get; set; }
             public string Description { get; set; }
             public int Level { get; set; }
@@ -34,6 +35,7 @@ namespace server.Controllers
             public List<EmergencyObject> Ems { get; set; }
             public int Count { get; set; }
         }
+
         [HttpGet]
         [Route("FindEmergency")]
         [ProducesResponseType(typeof(EmergencyResponse), StatusCodes.Status200OK)]
@@ -53,6 +55,7 @@ namespace server.Controllers
             {
                 var emergency = new EmergencyObject
                 {
+                    Id = reader.GetInt32(reader.GetOrdinal("ID")),
                     Location = reader.GetString(reader.GetOrdinal("Location")),
                     Level = reader.GetInt32(reader.GetOrdinal("Lvl_Emergency")),
                     Name = reader.GetString(reader.GetOrdinal("Name")),
@@ -60,9 +63,10 @@ namespace server.Controllers
                 };
                 emergencies.Add(emergency);
             }
-
-            return Ok(new EmergencyResponse { Error=null, Ems=emergencies, Count=emergencies.Count});
+            var sortedEmergencies = emergencies.OrderBy(e => e.Level).ToList();
+            return Ok(new EmergencyResponse { Error = null, Ems = sortedEmergencies, Count = sortedEmergencies.Count });
         }
+
         [HttpPost]
         [Route("MakeEmergency")]
         [ProducesResponseType(typeof(EmergencyResponse), StatusCodes.Status200OK)]
@@ -84,6 +88,27 @@ namespace server.Controllers
             return Ok(new EmergencyResponse { Error = null, Ems = null, Count = 0 });
         }
 
+        //[HttpDelete]
+        //[Route("DeleteEmergency")]
+        //[ProducesResponseType(typeof(EmergencyResponse), StatusCodes.Status200OK)]
+        //[ProducesResponseType(StatusCodes.Status400BadRequest)]
+        //public IActionResult DeleteEmergency([FromBody] EmergencyObject req)
+        //{
+        //    if (req == null)
+        //    {
+        //        return BadRequest(new EmergencyResponse
+        //        {
+        //            Error = "Invalid emergency ID",
+        //            Ems = null,
+        //            Count = 0
+        //        });
+        //    }
+        //    using var connection = new SqlConnection(__connectionString);
+        //    connection.Open();
 
+        //    string sql = "Delete idk";
+            
+        //    return Ok(new EmergencyResponse { Error = null, Ems = null, Count = 0 });
+        //}
     }
 }
