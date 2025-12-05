@@ -26,7 +26,7 @@ const SignInPage: React.FC = () => {
         try {
             // API call to database (placeholder)
             const response = await fetch("https://api.example.com/signin", {
-                method: "POST",
+                method: "GET",
                 headers: {
                     "Content-Type": "application/json",
                 },
