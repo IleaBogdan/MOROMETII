@@ -1,7 +1,8 @@
+using server;
+using server.Hubs;
+using System.Data.SqlTypes;
 using System.Net;
 using System.Net.Sockets;
-using System.Data.SqlTypes;
-using server;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,8 +27,11 @@ else
     });
 }
 
-string sql_connect = string.Format("Server={0}\\SQLEXPRESS;Database=MOROMETII;Trusted_Connection=True;", ip);
+string sql_connect = null;
+sql_connect = string.Format("Server={0}\\SQLEXPRESS;Database=MOROMETII;Trusted_Connection=True;", ip);
 server.Controllers.UserValidator.set_connection(sql_connect);
+server.Controllers.Emergency.set_connection(sql_connect);
+server.Hubs.EmergencyHub.set_connection(sql_connect);
 
 // Add services to the container.
 
@@ -35,6 +39,22 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+// Add SignalR services
+builder.Services.AddSignalR();
+
+// Configure CORS for React Native app
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ReactNativeApp",
+        builder =>
+        {
+            builder.AllowAnyHeader()
+                   .AllowAnyMethod()
+                   .SetIsOriginAllowed((host) => true) // For development
+                   .AllowCredentials();
+        });
+});
+
 
 var app = builder.Build();
 
@@ -57,5 +77,8 @@ app.UseCors(options => {
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Map SignalR hub
+app.MapHub<EmergencyHub>("/emergencyhub");
 
 app.Run();
