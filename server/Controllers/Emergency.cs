@@ -63,5 +63,27 @@ namespace server.Controllers
 
             return Ok(new EmergencyResponse { Error=null, Ems=emergencies, Count=emergencies.Count});
         }
+        [HttpPost]
+        [Route("MakeEmergency")]
+        [ProducesResponseType(typeof(EmergencyResponse), StatusCodes.Status200OK)]
+        public IActionResult MakeEmergency([FromBody] EmergencyObject req)
+        {
+            using var connection = new SqlConnection(__connectionString);
+            connection.Open();
+
+            string sql = "INSERT INTO Emergency ([Name],[Location],[Lvl_Emergency],[Description]) VALUES (@Name,@Location,@Level,@Description)";
+
+            using var command = new SqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@Name", req.Name);
+            command.Parameters.AddWithValue("@Location", req.Location);
+            command.Parameters.AddWithValue("@Level", req.Level);
+            command.Parameters.AddWithValue("@Description", req.Description);
+
+            using var reader = command.ExecuteReader();
+
+            return Ok(new EmergencyResponse { Error = null, Ems = null, Count = 0 });
+        }
+
+
     }
 }
