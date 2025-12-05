@@ -1,3 +1,8 @@
+using System.Data.SqlTypes;
+using server;
+
+server.Controllers.UserValidator.set_connection("Server=localhost\\SQLEXPRESS;Database=MOROMETII;Trusted_Connection=True;");
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
