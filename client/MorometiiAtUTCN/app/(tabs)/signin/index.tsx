@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { RelativePathString, useRouter } from "expo-router";
 import { useDynamicTheme } from "@/theme/theme";
 import { Route } from "expo-router/build/Route";
 
@@ -40,7 +40,7 @@ const SignInPage: React.FC = () => {
 
             if (response.ok && data.exists) {
                 // User exists, navigate to HomePage
-                router.push("/(tabs)/home");
+                router.push("/(tabs)/home" as RelativePathString);
             } else {
                 Alert.alert("Eroare de Autentificare!", "Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!");
             }
