@@ -7,7 +7,6 @@ import { Route } from "expo-router/build/Route";
 const theme = useDynamicTheme();
 
 const SignInPage: React.FC = () => {
-    const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -18,7 +17,7 @@ const SignInPage: React.FC = () => {
     };
 
     const handleSignIn = async () => {
-        if (!username.trim() || !email.trim() || !password.trim()) {
+        if (!email.trim() || !password.trim()) {
             Alert.alert("Eroare!", "Te rugam să completezi toate câmpurile!");
             return;
         }
@@ -32,7 +31,6 @@ const SignInPage: React.FC = () => {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    username,
                     email,
                     password,
                 }),
@@ -57,15 +55,6 @@ const SignInPage: React.FC = () => {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Autentificare</Text>
-
-            <TextInput
-                style={styles.input}
-                placeholder="Utilizator"
-                placeholderTextColor="#999"
-                value={username}
-                onChangeText={setUsername}
-                editable={!loading}
-            />
 
             <TextInput
                 style={styles.input}
