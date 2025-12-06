@@ -293,7 +293,7 @@ const AccountPage: React.FC = () => {
                 )}
             </View>
 
-            {(userData.isVerified) && (
+            {(
                 <View>
                     <View style={styles.certificationInfo}>
                         <View style={styles.stat_container}>

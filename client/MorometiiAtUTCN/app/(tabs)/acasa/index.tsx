@@ -55,7 +55,8 @@ interface Urgenta {
 }
 interface databaseUrgency {
     name: string;
-    id: number;
+    id:
+    number;
     description: string;
     level: number;
     location_X: number;
@@ -75,7 +76,7 @@ const HomePage: React.FC = () => {
         loadUserData();
         handleRefreshUrgencies();
     }, []);
-
+    useEffect(() => { }, [])
     const parseCoord = (value: string) => {
 
         if (!value) return 0;
@@ -204,7 +205,7 @@ const HomePage: React.FC = () => {
         });
     };
 
-    const closeUrgencies = urgencies
+    const closeUrgencies = urgencies;
     const makeLeafletHtml = (markers: databaseUrgency[]) => {
         const points = markers.map(m => ({
             lat: m.location_X,
@@ -310,54 +311,66 @@ const HomePage: React.FC = () => {
                         </Button>
                     </View>
                     {/* cards list below map */}
-                    {isRefreshing ?
-                        (<ActivityIndicator size={50} color={theme.colors.primary} style={{ marginTop: 50 }} />
-                        ) : (
-                            <View style={styles.urgencyList}>
-                                {closeUrgencies.map((u, i) => {
-                                    const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y) : null;
-                                    return (
-                                        <TouchableOpacity
-                                            key={i}
-                                            style={styles.urgencyCard}
-                                            onPress={() => {
-                                                // Convert to Urgenta format for the modal
-                                                const urgentaFormat: Urgenta = {
-                                                    name: u.name,
-                                                    description: u.description,
-                                                    location: [u.location_X.toString(), u.location_Y.toString()],
-                                                    score: u.level,
-                                                    count: 0, // Backend doesn't provide this
-                                                    id: u.id
-                                                };
-                                                setSelectedUrgency(urgentaFormat);
-                                                setDetailsVisible(true);
-                                            }}
-                                        >
-                                            <View>
-                                                <Text style={styles.detailText}>{u.name}</Text>
-                                            </View>
-                                            <View style={styles.urgencyMetaRow_Summary}>
-                                                <View style={styles.stat_container_Summary}>
-                                                    <View style={styles.stat_element_Sumarry}>
-                                                        <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
-                                                        <Text style={styles.stat_element_text_Sumarry}>{u.level}/10</Text>
-                                                    </View>
+                    {isRefreshing ? (
+                        <ActivityIndicator size={50} color={theme.colors.primary} style={{ marginTop: 50 }} />
+                    ) : closeUrgencies.length > 0 ? (
+                        <View style={styles.urgencyList}>
+                            {closeUrgencies.map((u, i) => {
+                                const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y) : null;
+                                return (
+                                    <TouchableOpacity
+                                        key={i}
+                                        style={styles.urgencyCard}
+                                        onPress={() => {
+                                            const urgentaFormat: Urgenta = {
+                                                name: u.name,
+                                                description: u.description,
+                                                location: [u.location_X.toString(), u.location_Y.toString()],
+                                                score: u.level,
+                                                count: 0,
+                                                id: u.id
+                                            };
+                                            setSelectedUrgency(urgentaFormat);
+                                            setDetailsVisible(true);
+                                        }}
+                                    >
+                                        <View>
+                                            <Text style={styles.detailText}>{u.name}</Text>
+                                        </View>
+                                        <View style={styles.urgencyMetaRow_Summary}>
+                                            <View style={styles.stat_container_Summary}>
+                                                <View style={styles.stat_element_Sumarry}>
+                                                    <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
+                                                    <Text style={styles.stat_element_text_Sumarry}>{u.level}/10</Text>
                                                 </View>
-                                                <View style={styles.stat_container_Summary}>
-                                                    <View style={styles.stat_element_Sumarry}>
-                                                        <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
-                                                        <Text style={styles.stat_element_text_Sumarry}>{dist != null ? `${dist.toFixed(1)} km` : '—'}</Text>
-                                                    </View>
-                                                </View>
-                                                <Text style={styles.urgencyMeta}>Aplicanți: 0</Text>
                                             </View>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        )}
-                    {/* Details modal for selected urgency */}
+                                            <View style={styles.stat_container_Summary}>
+                                                <View style={styles.stat_element_Sumarry}>
+                                                    <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
+                                                    <Text style={styles.stat_element_text_Sumarry}>{dist != null ? `${dist.toFixed(1)} km` : '—'}</Text>
+                                                </View>
+                                            </View>
+                                            <Text style={styles.urgencyMeta}>Aplicanți: 0</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    ) : (
+                        // Fallback UI when no urgencies are available
+                        <View style={styles.emptyStateContainer}>
+                            <MaterialIcons name="check-circle" size={80} color={theme.colors.primary} />
+                            <Text style={styles.emptyStateTitle}>Totul este în ordine!</Text>
+                            <Text style={styles.emptyStateDescription}>
+                                Nu există urgențe în apropierea dvs. în acest moment.
+                            </Text>
+                            <Text style={styles.emptyStateSubtext}>
+                                Trageți în jos pentru a actualiza lista de urgențe.
+                            </Text>
+                        </View>
+                    )}
+
+
                     <Modal visible={detailsVisible} transparent animationType="slide" onRequestClose={() => setDetailsVisible(false)}>
                         <ScrollView >
                             <View style={styles.modalOverlay}>
@@ -500,6 +513,33 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         marginTop: 20,
+    },
+    emptyStateContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+        paddingHorizontal: 20,
+    },
+    emptyStateTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: theme.colors.onBackground,
+        marginTop: 20,
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    emptyStateDescription: {
+        fontSize: 16,
+        color: theme.colors.onBackground,
+        textAlign: 'center',
+        marginBottom: 8,
+        lineHeight: 22,
+    },
+    emptyStateSubtext: {
+        fontSize: 14,
+        color: theme.colors.outline,
+        textAlign: 'center',
+        fontStyle: 'italic',
     },
     bottom_text: {
         color: theme.colors.onBackground,
