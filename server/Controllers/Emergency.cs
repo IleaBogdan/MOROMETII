@@ -25,14 +25,19 @@ namespace server.Controllers
         [HttpGet]
         [Route("FindEmergency")]
         [ProducesResponseType(typeof(EmergencyResponse), StatusCodes.Status200OK)]
-        public IActionResult FindEmergency(string Location)
+        public IActionResult FindEmergency(float Location_X,float Location_Y)
         {
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string sql = "SELECT * FROM Emergency";
+            string sql = @"SELECT * FROM Emergency WHERE
+                            Location_X BETWEEN @Location_X-30 AND @Location_X+30
+                            OR
+                            Location_Y BETWEEN @Location_Y-30 AND @Location_Y+30";
 
             using var command = new SqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@Location_X", Location_X);
+            command.Parameters.AddWithValue("@Location_Y", Location_Y);
 
             using var reader = command.ExecuteReader();
 
@@ -42,7 +47,8 @@ namespace server.Controllers
                 var emergency = new EmergencyObject
                 {
                     Id = reader.GetInt32(reader.GetOrdinal("ID")),
-                    Location = reader.GetString(reader.GetOrdinal("Location")),
+                    Location_X = (float)reader.GetDouble(reader.GetOrdinal("Location_X")),
+                    Location_Y = (float)reader.GetDouble(reader.GetOrdinal("Location_Y")),
                     Level = reader.GetInt32(reader.GetOrdinal("Lvl_Emergency")),
                     Name = reader.GetString(reader.GetOrdinal("Name")),
                     Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? string.Empty : reader.GetString(reader.GetOrdinal("Description"))
@@ -61,11 +67,12 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string sql = "INSERT INTO Emergency ([Name],[Location],[Lvl_Emergency],[Description]) VALUES (@Name,@Location,@Level,@Description)";
+            string sql = "INSERT INTO Emergency ([Name],[Location_X],[Location_Y],[Lvl_Emergency],[Description]) VALUES (@Name,@Location_X,@Location_Y,@Level,@Description)";
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@Name", req.Name);
-            command.Parameters.AddWithValue("@Location", req.Location);
+            command.Parameters.AddWithValue("@Location_X", req.Location_X);
+            command.Parameters.AddWithValue("@Location_Y", req.Location_Y);
             command.Parameters.AddWithValue("@Level", req.Level);
             command.Parameters.AddWithValue("@Description", req.Description);
 
