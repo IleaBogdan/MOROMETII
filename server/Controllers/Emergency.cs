@@ -103,14 +103,14 @@ namespace server.Controllers
             commandUpdate.Parameters.AddWithValue("@Level", req.Level);
             commandUpdate.Parameters.AddWithValue("@EmergencyId", req.Id);
 
-            int rowsAffected = commandUpdate.ExecuteNonQuery();
+            commandUpdate.ExecuteNonQuery();
 
             sql = "DELETE FROM Emergency WHERE ID = @Id";
 
             using var commandDelete = new SqlCommand(sql, connection);
             commandDelete.Parameters.AddWithValue("@Id", req.Id);
 
-            rowsAffected = commandDelete.ExecuteNonQuery();
+            int rowsAffected = commandDelete.ExecuteNonQuery();
 
             if (rowsAffected == 0)
             {
