@@ -22,35 +22,23 @@ namespace server.Controllers
         [HttpGet]
         [Route("FindAppliers")]
         [ProducesResponseType(typeof(ApplierResponse), StatusCodes.Status200OK)]
-        public IActionResult FindAppliers(int emergencyId)
+        public IActionResult FindAppliers(EmergencyObject req)
         {
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string sql = "SELECT Id, Name, Email, Password, EmergencyId FROM Users WHERE EmergencyId = @EmergencyId";
+            string sql = @"
+                UPDATE Users
+                SET Reputation = ISNULL(Reputation, 0) + @Level,
+                    EmergenciesCompleted = ISNULL(EmergenciesCompleted, 0) + 1
+                WHERE EmergencyId = @EmergencyId";
 
             using var command = new SqlCommand(sql, connection);
-            command.Parameters.AddWithValue("@EmergencyId", emergencyId);
+            command.Parameters.AddWithValue("@Level", req.Level);
+            command.Parameters.AddWithValue("@EmergencyId", req.Id);
 
-            using var reader = command.ExecuteReader();
-
-            var appliers = new List<User>();
-            while (reader.Read())
-            {
-                var applier = new User
-                {
-                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                    Name = reader.IsDBNull(reader.GetOrdinal("Name")) ? string.Empty : reader.GetString(reader.GetOrdinal("Name")),
-                    Email = reader.IsDBNull(reader.GetOrdinal("Email")) ? string.Empty : reader.GetString(reader.GetOrdinal("Email")),
-                    Password = reader.IsDBNull(reader.GetOrdinal("Password")) ? string.Empty : reader.GetString(reader.GetOrdinal("Password")),
-                    Image = null,
-                    EmergencyId = reader.IsDBNull(reader.GetOrdinal("EmergencyId")) ? 0 : reader.GetInt32(reader.GetOrdinal("EmergencyId"))
-                };
-                appliers.Add(applier);
-            }
-
-            var sorted = appliers.OrderBy(a => a.Name).ToList();
-            return Ok(new ApplierResponse { Error = null, Appliers = sorted, Count = sorted.Count });
+            int rowsAffected = command.ExecuteNonQuery();
+            return Ok(new ApplierResponse { Error = null, Count = rowsAffected });
         }
 
         // POST api/EmergencyApply/SetUserEmergency
@@ -62,7 +50,7 @@ namespace server.Controllers
         {
             if (req == null || req.UserId <= 0)
             {
-                return BadRequest(new ApplierResponse { Error = "Invalid request", Appliers = null, Count = 0 });
+                return BadRequest(new ApplierResponse { Error = "Invalid request", Count = 0 });
             }
 
             using var connection = new SqlConnection(__connectionString);
@@ -76,7 +64,7 @@ namespace server.Controllers
                 int exist = Convert.ToInt32(checkCmd.ExecuteScalar());
                 if (exist == 0)
                 {
-                    return Ok(new ApplierResponse { Error = "Emergency not found", Appliers = null, Count = 0 });
+                    return Ok(new ApplierResponse { Error = "Emergency not found", Count = 0 });
                 }
             }
 
@@ -90,10 +78,10 @@ namespace server.Controllers
 
             if (rowsAffected == 0)
             {
-                return Ok(new ApplierResponse { Error = "No user updated (user id may not exist)", Appliers = null, Count = 0 });
+                return Ok(new ApplierResponse { Error = "No user updated (user id may not exist)", Count = 0 });
             }
 
-            return Ok(new ApplierResponse { Error = null, Appliers = null, Count = rowsAffected });
+            return Ok(new ApplierResponse { Error = null, Count = rowsAffected });
         }
 
         public class SetUserEmergencyRequest
