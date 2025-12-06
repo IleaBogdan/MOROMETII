@@ -83,16 +83,18 @@ const HomePage: React.FC = () => {
     }
     const handleRefreshUrgencies = async () => {
         const API_BASE = "http://192.168.232.182:5024"
+        setIsRefreshing(true);
         // setUrgencies([]);
 
-        const response = await fetch("",
-            {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        )
+        // const response = await fetch("",
+        //     {
+        //         method: 'GET',
+        //         headers: {
+        //             'Content-Type': 'application/json'
+        //         }
+        //     }
+        // )
+        // setIsRefreshing(false);
     }
     const loadUserData = async () => {
         try {
@@ -290,45 +292,49 @@ const HomePage: React.FC = () => {
                     </View>
                     <View style={{ marginBottom: 10 }}>
                         <Text style={styles.title}>Urgențe Apropiate</Text>
-                        <Button mode="contained" style={{ backgroundColor: theme.colors.primary }} onPress={() => handleRefreshUrgencies()}>
+                        <Button mode="contained" style={{ backgroundColor: theme.colors.primary }} onPress={() => handleRefreshUrgencies}>
+
                             <Text style={styles.buttonText}>Actualizare urgente</Text>
                         </Button>
                     </View>
                     {/* cards list below map */}
-                    <View style={styles.urgencyList}>
-                        {closeUrgencies.map((u, i) => {
-                            const lat = parseCoord(u.location[0]);
-                            const lon = parseCoord(u.location[1]);
-                            const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, lat, lon) : null;
-                            return (
-                                <TouchableOpacity key={i} style={styles.urgencyCard} onPress={() => { setSelectedUrgency(u); setDetailsVisible(true); }}>
-                                    <View>
-                                        <Text style={styles.detailText}>{u.name}</Text>
-                                    </View>
-                                    <View style={styles.urgencyMetaRow_Summary}>
-                                        <View style={styles.stat_container_Summary}>
-                                            <View style={styles.stat_element_Sumarry}>
-                                                <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
-                                                <Text style={styles.stat_element_text_Sumarry}>{u.score}/10</Text>
+                    {isRefreshing ?
+                        (<ActivityIndicator size={50} color={theme.colors.primary} style={{ marginTop: 50 }} />
+                        ) : (
+                            <View style={styles.urgencyList}>
+                                {closeUrgencies.map((u, i) => {
+                                    const lat = parseCoord(u.location[0]);
+                                    const lon = parseCoord(u.location[1]);
+                                    const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, lat, lon) : null;
+                                    return (
+                                        <TouchableOpacity key={i} style={styles.urgencyCard} onPress={() => { setSelectedUrgency(u); setDetailsVisible(true); }}>
+                                            <View>
+                                                <Text style={styles.detailText}>{u.name}</Text>
                                             </View>
+                                            <View style={styles.urgencyMetaRow_Summary}>
+                                                <View style={styles.stat_container_Summary}>
+                                                    <View style={styles.stat_element_Sumarry}>
+                                                        <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
+                                                        <Text style={styles.stat_element_text_Sumarry}>{u.score}/10</Text>
+                                                    </View>
 
-                                        </View>
+                                                </View>
 
-                                        <View style={styles.stat_container_Summary}>
-                                            <View style={styles.stat_element_Sumarry}>
-                                                <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
-                                                <Text style={styles.stat_element_text_Sumarry}>{dist != null ? `${dist.toFixed(1)} km` : '—'}</Text>
+                                                <View style={styles.stat_container_Summary}>
+                                                    <View style={styles.stat_element_Sumarry}>
+                                                        <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
+                                                        <Text style={styles.stat_element_text_Sumarry}>{dist != null ? `${dist.toFixed(1)} km` : '—'}</Text>
+                                                    </View>
+                                                </View>
+
+
+                                                <Text style={styles.urgencyMeta}>Aplicanți: {u.count}</Text>
                                             </View>
-                                        </View>
-
-
-                                        <Text style={styles.urgencyMeta}>Aplicanți: {u.count}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        )}
                     {/* Details modal for selected urgency */}
                     <Modal visible={detailsVisible} transparent animationType="slide" onRequestClose={() => setDetailsVisible(false)}>
                         <ScrollView >
