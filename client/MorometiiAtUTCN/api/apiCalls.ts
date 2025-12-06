@@ -41,3 +41,43 @@ export async function handleSignIn(setLoading: any, email: string, password: str
       setLoading(false);
   }
 }
+
+export async function _handleSignUp(setLoading:any,name:string,email:string,password:string){
+    setLoading(true);
+    try {
+      const url = `${API_BASE}/api/UserValidator/SignUp`;
+      console.log("🔵 Attempting connection make an acount:", url);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(url, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({Name:name,Email:email,Password:password})
+      });
+      
+      clearTimeout(timeoutId);
+      const data = await response.json();
+      
+      console.log("✅ Response:", data);
+      return { data, response };
+      
+  } catch (error: any) {
+      if (error.name === 'AbortError') {
+          Alert.alert(
+              "Timeout",
+              "Serverul nu răspunde. Verifică:\n• IP-ul serverului\n• Firewall-ul\n• Conexiunea la rețea"
+          );
+      } else {
+          Alert.alert(
+              "Eroare de Rețea",
+              `Nu se poate conecta la server.\n\nIP Server: ${API_BASE}\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni\n\nEroare: ${error.message}`
+          );
+      }
+      return null;
+  } finally {
+      setLoading(false);
+  }
+}

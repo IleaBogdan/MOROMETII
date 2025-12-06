@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
-import { RelativePathString, useRouter } from "expo-router";
-import { theme } from '@/theme/theme'
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { handleSignIn } from "@/api/apiCalls";
+import { theme } from '@/theme/theme';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { RelativePathString, useRouter } from "expo-router";
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 
 const SignInPage: React.FC = () => {
