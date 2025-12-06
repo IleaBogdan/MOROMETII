@@ -128,7 +128,7 @@ const TabLayout = () => {
     <Tabs
       tabBar={() => (!isOnSign ? null : <BottomBar />)}
       screenOptions={{
-        header: () => (!isOnSign ? null : <TopBar />),
+        header: () => (null),
       }}
     >
       <Tabs.Screen name="cont" options={{ title: 'Cont' }} />

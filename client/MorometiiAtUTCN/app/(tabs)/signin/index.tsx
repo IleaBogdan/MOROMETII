@@ -32,7 +32,7 @@ const SignInPage: React.FC = () => {
                 ['id', (result.data.id).toString() || '0'],
             ]);
             router.push("/(tabs)/acasa" as RelativePathString);
-        } else if (result) {
+        } else if (result?.data.error) {
             Alert.alert(
                 "Eroare de Autentificare!",
                 `Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!${result.data.IsValid}`,

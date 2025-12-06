@@ -43,10 +43,10 @@ export async function handleSignIn(
     if (error.name === "AbortError") {
       Alert.alert("Timeout", "Serverul nu răspunde.");
     } else {
-      Alert.alert(
-        "Eroare de Rețea",
-        `Nu se poate conecta la server.\n\nIP Server: ${API_BASE}\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni\n\nEroare: ${error.message}`
-      );
+      //   Alert.alert(
+      //     "Eroare de Rețea",
+      //     `Nu se poate conecta la server.\n\nIP Server: ${API_BASE}\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni\n\nEroare: ${error.message}`
+      //   );
     }
     return null;
   } finally {
