@@ -19,26 +19,6 @@ const SignUpPage: React.FC = () => {
         router.push("/(tabs)/signin" as RelativePathString);
     };
 
-    const handleSignUp = async () => {
-        if(password!==confirmpassword){
-            Alert.alert("Passwords do not match!");
-            return null;
-        }
-        const result=await _handleSignUp(setLoading,username,email,password);
-        if(result&&result.data&&result.data.isValid&&result.response.ok){
-            await AsyncStorage.multiSet([
-                ['email', email.trim()],
-                ['password', password.trim()]
-            ]);
-            router.push("/(tabs)/acasa" as RelativePathString);
-        } else {
-            Alert.alert(
-                "Eroare de SignUp!",
-                "Nu s-a putut face contul"
-            );
-        }
-    };
-
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Înregistrare</Text>
@@ -84,7 +64,7 @@ const SignUpPage: React.FC = () => {
 
             <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleSignUp}
+                onPress={() => _handleSignUp(setLoading, username, email, password, confirmpassword, router)}
                 disabled={loading}
             >
                 {loading ? (

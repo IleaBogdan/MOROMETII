@@ -19,9 +19,10 @@ const SignInPage: React.FC = () => {
 
     const handleLogin = async () => {
         const result = await handleSignIn(setLoading, email, password);
-        
+
         if (result && result.data && result.data.isValid && result.response.ok) {
             await AsyncStorage.multiSet([
+                ['username', result.data.username],
                 ['email', email.trim()],
                 ['password', password.trim()]
             ]);

@@ -1,14 +1,13 @@
-import { useDynamicTheme } from '@/theme/theme';
+import { theme } from '@/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { RelativePathString, router, Tabs, usePathname } from 'expo-router';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Appbar } from 'react-native-paper';
 
 import { addToHistory } from '@/history/navigationHistory';
 
 export const TopBar: React.FC = () => {
-  const theme = useDynamicTheme();
   const pathname = usePathname();
 
 
@@ -23,7 +22,7 @@ export const TopBar: React.FC = () => {
   const canGoBack = () => {
     return pathname !== '/(tabs)/acasa' && pathname !== '/(tabs)';
   };
-   const isOnSign = pathname === '/(tabs)/signin' || pathname === '/(tabs)/signup';
+  const isOnSign = pathname === '/(tabs)/signin' || pathname === '/(tabs)/signup';
   return (
     <Appbar.Header
       style={[styles.header, { backgroundColor: theme.colors.background }]}
@@ -39,7 +38,7 @@ export const TopBar: React.FC = () => {
       ) : (
         <Appbar.Action icon="menu" color="transparent" />
       )}*/}
-      {isOnSign && <Appbar.Content title={pageName} style={{ alignItems: 'center' }} />}
+      <Appbar.Content title={pageName} style={{ alignItems: 'center' }} />
       {/*<Appbar.Action
         icon="account-circle"
         color={theme.colors.primary}
@@ -69,7 +68,6 @@ const stylesHeader = StyleSheet.create({
 });
 
 const BottomBar: React.FC = () => {
-  const theme = useDynamicTheme();
   const pathname = usePathname();
 
   const tabs = [
@@ -111,7 +109,7 @@ const stylesBottom = StyleSheet.create({
     paddingVertical: 6,
     paddingBottom: 50,
     elevation: 6,
-    height:120,
+    height: 120,
   },
   tabButton: {
     alignItems: 'center',
@@ -125,12 +123,12 @@ const stylesBottom = StyleSheet.create({
 
 const TabLayout = () => {
   const pathname = usePathname();
-  const isOnSign = pathname === '/(tabs)/signin' || pathname === '/(tabs)/signup';
+  const isOnSign = !pathname.includes('/signin') && !pathname.includes('/signup');
   return (
     <Tabs
-      tabBar={() => (isOnSign ? <BottomBar /> : null)}
+      tabBar={() => (!isOnSign ? null : <BottomBar />)}
       screenOptions={{
-        header: () => <TopBar />,
+        header: () => (!isOnSign ? null : <TopBar />),
       }}
     >
       <Tabs.Screen name="cont" options={{ title: 'Cont' }} />
