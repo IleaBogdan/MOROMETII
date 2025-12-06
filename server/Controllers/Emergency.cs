@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using server.Models;
 using System;
 using System.Data.SqlClient;
 using System.IO;
@@ -8,7 +9,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using static server.Controllers.UserValidator;
 
 namespace server.Controllers
 {
@@ -20,20 +20,6 @@ namespace server.Controllers
         public static void set_connection(string connectionString)
         {
             __connectionString = connectionString;
-        }
-        public class EmergencyObject
-        {
-            public int Id { get; set; }
-            public string Name { get; set; }
-            public string Description { get; set; }
-            public int Level { get; set; }
-            public string Location { get; set; }
-        }
-        public class EmergencyResponse
-        {
-            public string Error { get; set; }
-            public List<EmergencyObject> Ems { get; set; }
-            public int Count { get; set; }
         }
 
         [HttpGet]
