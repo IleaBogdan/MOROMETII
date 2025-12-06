@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { MaterialIcons } from "@expo/vector-icons";
-import { View, Text, Alert, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Linking, ScrollView, RefreshControl, Platform } from "react-native";
-import { theme } from '@/theme/theme'
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Button } from "react-native-paper";
 import { API_BASE } from "@/api/apiCalls";
+import { theme } from '@/theme/theme';
+import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Linking, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 // Platform-safe map imports
 let MapView: any = null;
 let Marker: any = null;
@@ -40,7 +39,7 @@ interface UserData {
     reputation: string;
     events: string;
     emergencyid: number;
-
+    id: number | null;
 }
 
 interface Urgenta {
@@ -64,18 +63,25 @@ interface databaseUrgency {
 const HomePage: React.FC = () => {
     const [userData, setUserData] = useState<UserData | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [interveningEmergencies, setInterveningEmergencies] = useState<{ [key: number]: string[] }>({});
+    const [isApplying, setIsApplying] = useState(false);
+
     const [urgencies, setUrgencies] = useState<databaseUrgency[]>([]);
     const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const [selectedUrgency, setSelectedUrgency] = useState<Urgenta | null>(null);
     const [detailsVisible, setDetailsVisible] = useState(false);
+    // When set, only emergencies with this ID remain clickable
+    const [activeEmergencyId, setActiveEmergencyId] = useState<number | null>(null);
 
     useEffect(() => {
         loadUserData();
         handleRefreshUrgencies();
+        loadInterveningEmergencies();
     }, []);
-    useEffect(() => { }, [])
-    const parseCoord = (value: string) => {
 
+
+    const parseCoord = (value: string | number) => {
+        if (typeof value === 'number') return value;
         if (!value) return 0;
         const parts = value.trim().split(" ");
         if (parts.length === 1) {
@@ -86,9 +92,132 @@ const HomePage: React.FC = () => {
         if (dir === "S" || dir === "W") n = -n;
         return n;
     };
-    const handleIntervene = async (selectedUrgency: Urgenta) => {
+    const loadInterveningEmergencies = async () => {
+        try {
+            const jsonValue = await AsyncStorage.getItem('@intervening_emergencies');
+            setInterveningEmergencies(jsonValue != null ? JSON.parse(jsonValue) : {});
+        } catch (e) {
+            console.error("Error loading intervening emergencies:", e);
+        }
+    };
+    const saveInterveningEmergencies = async (data: { [key: number]: string[] }) => {
+        try {
+            const jsonValue = JSON.stringify(data);
+            await AsyncStorage.setItem('@intervening_emergencies', jsonValue);
+        } catch (e) {
+            console.error("Error saving intervening emergencies:", e);
+        }
+    };
+    const isUserIntervening = (emergencyId: number, userName: string) => {
+        const interveners = interveningEmergencies[emergencyId] || [];
+        return interveners.includes(userName);
+    };
 
-        openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))
+    const handleIntervene = async (urgency: Urgenta) => {
+        // 1. input validation
+        if (!userData || !userData.username || isApplying) {
+            if (!userData || !userData.username) {
+                Alert.alert("Eroare", "Date utilizator lipsă.");
+            }
+            return;
+        }
+
+        const emergencyId = urgency.id;
+        // Ensure we have a valid string for ID, otherwise stop.
+        const userId = userData.id?.toString();
+
+        if (!userId) {
+            Alert.alert("Eroare", "ID-ul utilizatorului nu a fost găsit.");
+            return;
+        }
+
+        // 2. Prevent starting a different intervention while another is active
+        if (activeEmergencyId !== null && activeEmergencyId !== emergencyId) {
+            Alert.alert("Blocare", "O altă intervenție este activă. Finalizați sau așteptați acea intervenție.");
+            return;
+        }
+
+        // mark this emergency as the active one (locks other items)
+        if (activeEmergencyId === null) setActiveEmergencyId(emergencyId);
+
+        // 3. Check if already intervening (UX optimization)
+        if (isUserIntervening(emergencyId, userId)) {
+            openInMaps(parseCoord(urgency.location[0]), parseCoord(urgency.location[1]));
+            return;
+        }
+
+        setIsApplying(true);
+
+        try {
+            const url = API_BASE; // Fixed missing semicolon
+
+            // 3. Use encodeURIComponent for safety, even if IDs are usually simple
+            const requestUrl = `${url}/api/UserManager/ApplyFor?EmergencyId=${encodeURIComponent(emergencyId)}&UserId=${encodeURIComponent(userId)}`;
+
+            const response = await fetch(requestUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            // 4. Safer JSON parsing. Check status before parsing.
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                // If response isn't JSON (e.g., 500 HTML error), this catches it
+                throw new Error(`Server returned status ${response.status} but invalid JSON.`);
+            }
+
+            console.log("API Response:", data);
+
+            if (response.ok && data.error === null) {
+                // Safe parsing of the comma-separated names list
+                const namesList = data.names
+                    ? data.names.split(',').map((name: string) => name.trim()).filter((name: string) => name.length > 0)
+                    : [userId];
+
+                const newInterventions = {
+                    ...interveningEmergencies,
+                    [emergencyId]: namesList
+                };
+
+                setInterveningEmergencies(newInterventions);
+                await saveInterveningEmergencies(newInterventions);
+
+                setDetailsVisible(false);
+
+                // 5. UX Improvement: Open map ONLY after user clicks "OK" on the alert
+                Alert.alert(
+                    "Succes",
+                    "Ați început intervenția! Se deschide harta.",
+                    [
+                        {
+                            text: "OK",
+                            onPress: () => {
+                                openInMaps(parseCoord(urgency.location[0]), parseCoord(urgency.location[1]));
+                            }
+                        }
+                    ]
+                );
+
+            } else {
+                console.log("API Logic Error:", data.error);
+                const errorMessage = data.error || "A apărut o eroare necunoscută.";
+                Alert.alert("Eroare intervenție", errorMessage);
+                // if this call had set the activeEmergencyId, clear it because it failed
+                if (activeEmergencyId === emergencyId) setActiveEmergencyId(null);
+            }
+
+        } catch (error) {
+            console.error("Error applying for emergency:", error);
+            const msg = error instanceof Error ? error.message : "Nu s-a putut contacta serverul.";
+            Alert.alert("Eroare", msg);
+            if (activeEmergencyId === emergencyId) setActiveEmergencyId(null);
+        } finally {
+            setIsApplying(false);
+        }
     }
     const handleRefreshUrgencies = async () => {
         const url = API_BASE;
@@ -111,23 +240,28 @@ const HomePage: React.FC = () => {
             setIsRefreshing(false);
         }
     };
+
+    // Removed the incorrect useEffect for isInterveningInSelected
+
     const loadUserData = async () => {
         try {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
-            const isValid = await AsyncStorage.getItem("isValid");
+            const isValid = await AsyncStorage.getItem("isVerified");
             const certification_img = await AsyncStorage.getItem("certification_img");
             const reputation = await AsyncStorage.getItem("reputation");
             const events = await AsyncStorage.getItem("events");
             const emergencyid = await AsyncStorage.getItem("emergencyid");
+            const id = await AsyncStorage.getItem('id');
             setUserData({
                 username: username || "",
                 email: email || "",
-                is_validated: "true" === "true",
-                certification_mode: "yes",
+                is_validated: isValid === "true",
+                certification_mode: certification_img ? "yes" : null,
                 reputation: reputation || '0',
                 events: events || '0',
                 emergencyid: emergencyid ? parseInt(emergencyid) : 0,
+                id: id ? parseInt(id) : 0,
             });
         } catch (error) {
             console.error("Error loading user data:", error);
@@ -135,21 +269,13 @@ const HomePage: React.FC = () => {
         }
     };
 
-    // useEffect(() => {
-    //     const sample: Urgenta[] = [
-    //         { name: "Accident rutier", description: "Derived from a scrambled Latin text (Cicero's it's gibberish but mimics real language's character/word distribution, preventing distraction from design elements like typography", location: ["46.7712", "23.6236"], score: 8, count: 3, id: 1 },
-    //         { name: "Infarct", description: "Persoană inconștientă", location: ["46.7667", "23.5833"], score: 9, count: 1, id: 2 },
-    //         { name: "Cădere", description: "Persoană căzută pe stradă", location: ["46.7725", "23.6000"], score: 6, count: 0, id: 3 },
-    //     ];
-    //     setUrgencies(sample);
-    // }, []);
-
 
     useEffect(() => {
         const getLocation = async () => {
             try {
                 let locModule: any = null;
                 try {
+
                     locModule = require("expo-location");
                 } catch (e) {
                     locModule = null;
@@ -165,6 +291,7 @@ const HomePage: React.FC = () => {
                     }
                 }
 
+                // Fallback for web/non-expo
                 if (navigator && (navigator as any).geolocation) {
                     (navigator as any).geolocation.getCurrentPosition(
                         (pos: any) => setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
@@ -193,7 +320,8 @@ const HomePage: React.FC = () => {
     const openInMaps = (lat: number, lon: number) => {
         const latStr = lat.toString();
         const lonStr = lon.toString();
-        const googleUrl = `https://www.google.com/maps/search/?api=1&query=${latStr},${lonStr}`;
+        // Corrected Google Maps URL format
+        const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${latStr},${lonStr}`;
         const wazeUrl = `https://waze.com/ul?ll=${latStr},${lonStr}&navigate=yes`;
 
 
@@ -231,7 +359,7 @@ const HomePage: React.FC = () => {
             const points = ${ptsJson};
             const first = points[0] || {lat:0,lon:0};
             const map = L.map('map').setView([first.lat, first.lon], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
             points.forEach(p => {
                 L.marker([p.lat, p.lon]).addTo(map).bindPopup('<b>'+p.name+'</b><br/>'+ (p.desc||''));
             });
@@ -239,6 +367,13 @@ const HomePage: React.FC = () => {
     </body>
 </html>`;
     };
+
+    // Calculate this value just before render, or use useMemo if complex
+    const isInterveningInSelected = useMemo(() => {
+        return selectedUrgency && userData ? isUserIntervening(selectedUrgency.id, userData.username) : false;
+    }, [selectedUrgency, userData, interveningEmergencies]);
+
+
     return (
         <View style={styles.container}>
             {!userData || (!userData.is_validated) && (
@@ -278,6 +413,7 @@ const HomePage: React.FC = () => {
                                 >
                                     {closeUrgencies.map((u, idx) => (
                                         Marker ? (
+
                                             <Marker
                                                 key={idx}
                                                 coordinate={{
@@ -324,22 +460,29 @@ const HomePage: React.FC = () => {
                                         return theme.colors.tertiary;
                                     };
                                     const severityColor = getSeverityColor(u.level);
+                                    const isIntervening = userData ? isUserIntervening(u.id, userData.username) : false;
+
                                     return (
                                         <TouchableOpacity
                                             key={i}
-                                            style={styles.urgencyCard}
-                                            activeOpacity={0.7}
+                                            disabled={activeEmergencyId !== null && activeEmergencyId !== u.id}
+                                            style={[
+                                                styles.urgencyCard,
+                                                isIntervening && { backgroundColor: theme.colors.primaryContainer },
+                                                (activeEmergencyId !== null && activeEmergencyId !== u.id) && { opacity: 0.45 }
+                                            ]}
                                             onPress={() => {
-                                                // Convert to Urgenta format for the modal
-                                                const urgentaFormat: Urgenta = {
+                                                // prevent click if another emergency is active
+                                                if (activeEmergencyId !== null && activeEmergencyId !== u.id) return;
+                                                const urgencyDetails: Urgenta = {
                                                     name: u.name,
                                                     description: u.description,
                                                     location: [u.location_X.toString(), u.location_Y.toString()],
                                                     score: u.level,
-                                                    count: 0, // Backend doesn't provide this
-                                                    id: u.id
-                                                };
-                                                setSelectedUrgency(urgentaFormat);
+                                                    count: 0,
+                                                    id: u.id,
+                                                }
+                                                setSelectedUrgency(urgencyDetails);
                                                 setDetailsVisible(true);
                                             }}
                                         >
@@ -495,7 +638,8 @@ const HomePage: React.FC = () => {
                         </View>
                     </Modal>
                 </ScrollView >
-            )}
+            )
+            }
         </View >
     );
 };
