@@ -56,8 +56,8 @@ namespace server.Controllers
                     Message = $"Invalid file type. Allowed types: {string.Join(", ", allowedExtensions)}"
                 });
 
-            try
-            {
+            //try
+            //{
                 using var connection = new SqlConnection(__connectionString);
                 await connection.OpenAsync();
 
@@ -99,16 +99,16 @@ namespace server.Controllers
                     FileSize = request.CertificateFile.Length,
                     ContentType = request.CertificateFile.ContentType
                 });
-            }
-            catch (Exception ex)
-            {
-                // Log the exception
-                return StatusCode(500, new CertificateResponse
-                {
-                    Success = false,
-                    Message = $"An error occurred: {ex.Message}"
-                });
-            }
+            //}
+            //catch (Exception ex)
+            //{
+            //    // Log the exception
+            //    return StatusCode(500, new CertificateResponse
+            //    {
+            //        Success = false,
+            //        Message = $"An error occurred: {ex.Message}"
+            //    });
+            //}
         }
     }
 }

@@ -32,6 +32,7 @@ sql_connect = string.Format("Server={0}\\SQLEXPRESS;Database=MOROMETII;Trusted_C
 server.Controllers.UserValidator.set_connection(sql_connect);
 server.Controllers.Emergency.set_connection(sql_connect);
 server.Hubs.EmergencyHub.set_connection(sql_connect);
+server.Controllers.UserManager.set_connection(sql_connect);
 
 // Add services to the container.
 
