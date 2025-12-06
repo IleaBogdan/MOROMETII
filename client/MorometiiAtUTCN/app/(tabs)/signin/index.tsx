@@ -3,7 +3,7 @@ import { theme } from '@/theme/theme';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RelativePathString, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from "react-native";
 
 
 const SignInPage: React.FC = () => {
@@ -42,6 +42,9 @@ const SignInPage: React.FC = () => {
 
     return (
         <View style={styles.container}>
+            {/* Logo from assets */}
+            <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+
             <Text style={styles.title}>Autentificare</Text>
 
             <TextInput
@@ -131,7 +134,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#ccc",
     },
     buttonText: {
-        color: "#fff",
+        color: theme.colors.onPrimary,
         fontSize: 18,
         fontWeight: "bold",
     },
@@ -145,6 +148,15 @@ const styles = StyleSheet.create({
         color: theme.colors.secondary,
         fontWeight: "bold",
         marginLeft: 5,
+    },
+    logo: {
+        width: 250,
+        height: 250,
+        marginBottom: 20,
+        position: 'absolute',
+        top: 28,
+        zIndex: 10,
+        alignSelf: 'center',
     },
 });
 
