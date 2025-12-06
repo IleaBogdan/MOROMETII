@@ -24,7 +24,8 @@ const SignInPage: React.FC = () => {
             await AsyncStorage.multiSet([
                 ['username', result.data.username],
                 ['email', email.trim()],
-                ['password', password.trim()]
+                ['password', password.trim()],
+                ['isVerified', result.data.IsVerified ? 'true' : 'false'],
             ]);
             router.push("/(tabs)/acasa" as RelativePathString);
         } else {

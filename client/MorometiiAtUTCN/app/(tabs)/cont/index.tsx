@@ -19,7 +19,7 @@ interface UserData {
     username: string;
     email: string;
     isVerified: boolean;
-    certification_mode: string | null;
+    certification_img: string | null;
     reputation: number | null;
     events: number | null;
     id: number;
@@ -69,7 +69,7 @@ const AccountPage: React.FC = () => {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
             const isVerified = await AsyncStorage.getItem("isVerified");
-            const certification_mode = await AsyncStorage.getItem("certification_mode");
+            const certification_img = await AsyncStorage.getItem("certification_img");
             const reputation = await AsyncStorage.getItem("reputation");
             const events = await AsyncStorage.getItem("events");
             const id = await AsyncStorage.getItem("id");
@@ -77,7 +77,7 @@ const AccountPage: React.FC = () => {
                 username: username || "",
                 email: email || "",
                 isVerified: isVerified === "true",
-                certification_mode: certification_mode || null,
+                certification_img: certification_img || null,
                 reputation: reputation ? parseInt(reputation) : 0,
                 events: events ? parseInt(events) : 0,
                 id: id ? parseInt(id) : 0,
@@ -144,9 +144,9 @@ const AccountPage: React.FC = () => {
             });
 
             if (response.ok) {
-                await AsyncStorage.setItem("certification_mode", "diploma");
+                await AsyncStorage.setItem("certification_img", "diploma");
                 await AsyncStorage.setItem("is_validated", "true");
-                setUserData(prev => prev ? { ...prev, certification_mode: "diploma", is_validated: true } : null);
+                setUserData(prev => prev ? { ...prev, certification_img: "diploma", is_validated: true } : null);
                 Alert.alert("Succes!", "Diploma a fost încărcată cu succes");
                 setPhotoModalVisible(false);
             } else {
@@ -191,7 +191,7 @@ const AccountPage: React.FC = () => {
                 )}
             </View>
 
-            {(userData.isVerified && userData.certification_mode) && (
+            {(userData.isVerified && userData.certification_img) && (
 
                 <View>
                     <View style={styles.certificationInfo}>
@@ -218,7 +218,7 @@ const AccountPage: React.FC = () => {
                     </View>
                 </View>
             )}
-            {(!userData.certification_mode) && (
+            {(!userData.certification_img) && (
                 <View style={styles.packagesSection}>
                     <View style={styles.certificationInfo}>
                         <Text style={styles.infoTitle}>De ce este necesară certificarea?</Text>
@@ -245,7 +245,7 @@ const AccountPage: React.FC = () => {
                     </View>
                 </View>
             )}
-            {(!userData.isVerified && userData.certification_mode) && (
+            {(!userData.isVerified && userData.certification_img) && (
                 <View style={styles.packagesSection}>
                     {/* Certification Info */}
                     <View style={styles.verificareInfo}>
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 8,
         gap: 6,
-        // Ensure minimum touch target size (44x44 for iOS guidelines)
+
         minWidth: 44,
         minHeight: 44,
         justifyContent: 'center',
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     },
     certifiedBadge: {
         fontSize: 14,
-        color: "#4CAF50",
+        color: theme.colors.secondary,
         fontWeight: "bold",
     },
     certificationInfo: {
