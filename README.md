@@ -344,16 +344,4 @@ Do **not** commit real credentials, tokens, or production keys to the repository
    ```
 6. Push the branch and open a Pull Request against the main branch.
 
----
-
-## License
-
-Specify the license under which Interventii24 is distributed.
-
-For example:
-
-```text
-This project is licensed under the MIT License.
-```
-
 If no license has been chosen yet, consider options such as MIT, Apache 2.0, or GPL-3.0 and update this section accordingly.
