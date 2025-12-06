@@ -76,7 +76,7 @@ const AccountPage: React.FC = () => {
             setUserData({
                 username: username || "",
                 email: email || "",
-                isVerified: isVerified === "true",
+                isVerified: isVerified === 'true',
                 certification_img: certification_img || null,
                 reputation: reputation ? parseInt(reputation) : 0,
                 events: events ? parseInt(events) : 0,
@@ -218,7 +218,7 @@ const AccountPage: React.FC = () => {
                     </View>
                 </View>
             )}
-            {(!userData.certification_img) && (
+            {(!userData.isVerified) && (
                 <View style={styles.packagesSection}>
                     <View style={styles.certificationInfo}>
                         <Text style={styles.infoTitle}>De ce este necesară certificarea?</Text>
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     },
     certifiedBadge: {
         fontSize: 14,
-        color: theme.colors.secondary,
+        color: theme.colors.primary,
         fontWeight: "bold",
     },
     certificationInfo: {

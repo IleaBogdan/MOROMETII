@@ -25,7 +25,7 @@ const SignInPage: React.FC = () => {
                 ['username', result.data.username],
                 ['email', email.trim()],
                 ['password', password.trim()],
-                ['isVerified', result.data.IsVerified ? 'true' : 'false'],
+                ['isVerified', result.data.isVerified ? 'true' : 'false'],
             ]);
             router.push("/(tabs)/acasa" as RelativePathString);
         } else {
