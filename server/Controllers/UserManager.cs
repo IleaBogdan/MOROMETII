@@ -67,13 +67,11 @@ namespace server.Controllers
                 var certificateData = memoryStream.ToArray();
 
                 // SQL query to update user's certificate
-                string sql = @"
-            UPDATE Users 
-            SET Certificate = @Certificate,
-                CertificateContentType = @ContentType,
-                CertificateFileName = @FileName,
-                CertificateFileSize = @FileSize
-            WHERE Id = @UserId";
+                string sql = @"UPDATE Users SET Certificate = @Certificate,
+                                CertificateContentType = @ContentType,
+                                CertificateFileName = @FileName,
+                                CertificateFileSize = @FileSize
+                                WHERE Id = @UserId";
 
                 using var command = new SqlCommand(sql, connection);
 
