@@ -11,7 +11,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using System;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -44,9 +43,9 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string sql = "SELECT * FROM Users WHERE Email=@Email AND Password=@Password";
+            string checksql = "SELECT * FROM Users WHERE Email=@Email AND Password=@Password";
 
-            using var command = new SqlCommand(sql, connection);
+            using var command = new SqlCommand(checksql, connection);
             command.Parameters.AddWithValue("@Email", Email);
             command.Parameters.AddWithValue("@Password", Password);
 
