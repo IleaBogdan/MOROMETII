@@ -3,11 +3,12 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { RelativePathString, router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, } from "react";
 import {
     ActivityIndicator,
     Alert,
     Modal,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -19,7 +20,7 @@ interface UserData {
     username: string;
     email: string;
     isVerified: boolean;
-    certification_img: string | null;
+    certification_img: boolean;
     reputation: number | null;
     events: number | null;
     id: number;
@@ -29,10 +30,19 @@ const AccountPage: React.FC = () => {
     const [userData, setUserData] = useState<UserData | null>(null);
     const [photoModalVisible, setPhotoModalVisible] = useState(false);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     useEffect(() => {
-        loadUserData();
+        const initialize = async () => {
+            await loadUserData();
+        };
+        initialize();
     }, []);
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await loadUserData();
+        setTimeout(() => setIsRefreshing(false), 1000);
+    };
 
 
     const handleLogout = async () => {
@@ -52,6 +62,7 @@ const AccountPage: React.FC = () => {
 
                             const keys = await AsyncStorage.getAllKeys();
                             await AsyncStorage.multiRemove(keys);
+                            await AsyncStorage.clear();
 
                             router.replace("/(tabs)/signin" as RelativePathString);
                         } catch (error) {
@@ -63,8 +74,64 @@ const AccountPage: React.FC = () => {
             ]
         );
     };
-
     const loadUserData = async () => {
+        try {
+            const API_BASE = "http://192.168.232.182:5024";
+            const email = await AsyncStorage.getItem("email");
+            const password = await AsyncStorage.getItem("password");
+
+            if (!email || !password) {
+                console.error("No credentials found in storage");
+                await loadCachedUserData();
+                return;
+            }
+
+            const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodeURIComponent(email)}&Password=${encodeURIComponent(password)}`;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            try {
+                const response = await fetch(url, {
+                    method: "GET",
+                    signal: controller.signal,
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result) {
+                    await AsyncStorage.multiSet([
+                        ['username', result.username || ''],
+                        ['isVerified', result.isVerified ? 'true' : 'false'],
+                        ['certification_img', result.isImage === true ? 'true' : 'false'],
+                        ['reputation', result.reputation !== undefined ? result.reputation.toString() : '0'],
+                        ['events', result.emCount !== undefined ? result.emCount.toString() : '0'],
+                        ['id', result.id ? result.id.toString() : '0'],
+                    ]);
+                }
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                console.error("Fetch error:", fetchError);
+                if (!isRefreshing) {
+                    console.warn("Failed to fetch updated data, using cached data");
+                }
+            }
+
+            await loadCachedUserData();
+
+        } catch (error) {
+            console.error("Error in loadUserData:", error);
+            await loadCachedUserData();
+        }
+    };
+
+    const loadCachedUserData = async () => {
         try {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
@@ -73,17 +140,18 @@ const AccountPage: React.FC = () => {
             const reputation = await AsyncStorage.getItem("reputation");
             const events = await AsyncStorage.getItem("events");
             const id = await AsyncStorage.getItem("id");
+
             setUserData({
                 username: username || "",
                 email: email || "",
                 isVerified: isVerified === 'true',
-                certification_img: certification_img || null,
+                certification_img: certification_img === 'true',
                 reputation: reputation ? parseInt(reputation) : 0,
                 events: events ? parseInt(events) : 0,
                 id: id ? parseInt(id) : 0,
             });
         } catch (error) {
-            console.error("Error loading user data:", error);
+            console.error("Error loading cached user data:", error);
             Alert.alert("Eroare", "Nu s-au putut încărca datele utilizatorului");
         }
     };
@@ -144,9 +212,9 @@ const AccountPage: React.FC = () => {
             });
 
             if (response.ok) {
-                await AsyncStorage.setItem("certification_img", "diploma");
+                await AsyncStorage.setItem("certification_img", "true");
                 await AsyncStorage.setItem("is_validated", "true");
-                setUserData(prev => prev ? { ...prev, certification_img: "diploma", is_validated: true } : null);
+                setUserData(prev => prev ? { ...prev, certification_img: true, is_validated: true } : null);
                 Alert.alert("Succes!", "Diploma a fost încărcată cu succes");
                 setPhotoModalVisible(false);
             } else {
@@ -171,7 +239,16 @@ const AccountPage: React.FC = () => {
     }
 
     return (
-        <ScrollView style={styles.container}>
+        <ScrollView style={styles.container}
+            refreshControl={
+                <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={handleRefresh}
+                    tintColor={theme.colors.primary}
+                    colors={[theme.colors.primary]}
+                />
+            }
+        >
             {/* User Info */}
             <View style={styles.userInfoSection}>
                 <View style={styles.logoutContainer}>
@@ -191,8 +268,7 @@ const AccountPage: React.FC = () => {
                 )}
             </View>
 
-            {(userData.isVerified && userData.certification_img) && (
-
+            {(userData.isVerified) && (
                 <View>
                     <View style={styles.certificationInfo}>
                         <View style={styles.stat_container}>
@@ -218,7 +294,7 @@ const AccountPage: React.FC = () => {
                     </View>
                 </View>
             )}
-            {(!userData.isVerified) && (
+            {(!userData.isVerified && !userData.certification_img) && (
                 <View style={styles.packagesSection}>
                     <View style={styles.certificationInfo}>
                         <Text style={styles.infoTitle}>De ce este necesară certificarea?</Text>
@@ -247,22 +323,19 @@ const AccountPage: React.FC = () => {
             )}
             {(!userData.isVerified && userData.certification_img) && (
                 <View style={styles.packagesSection}>
-                    {/* Certification Info */}
                     <View style={styles.verificareInfo}>
                         <Text style={styles.infoTitle}>Certificare în curs de procesare!</Text>
                         <Text style={styles.infoDescription}>
-                            Te rugăm să aștepți până când unui dintre adminisratorii noștrii iți validează certificatul furnizar!
+                            Te rugăm să aștepți până când unui dintre administratorii noștri îți validează certificatul furnizat!
                         </Text>
                         <Text style={styles.infoDescription}>
                             Certificatul tău garantează că ești pregătit pentru situații de urgență și că poți ajuta în mod eficient și sigur.
                         </Text>
-
                         <Text style={styles.sectionTitle}>Ne vedem în curând...</Text>
                     </View>
                 </View>
             )}
 
-            {/* Photo Upload Modal - Diploma */}
             <Modal visible={photoModalVisible} transparent animationType="slide">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -316,11 +389,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: theme.colors.errorContainer || 'rgba(255, 0, 0, 0.1)',
-        paddingHorizontal: 12,
+        paddingHorizontal: 8,
         paddingVertical: 8,
         borderRadius: 8,
         gap: 6,
-
         minWidth: 44,
         minHeight: 44,
         justifyContent: 'center',
@@ -330,11 +402,32 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: theme.colors.error,
     },
+    refreshButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.primaryContainer || 'rgba(0, 122, 255, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 8,
+        borderRadius: 8,
+        gap: 4,
+        minWidth: 44,
+        minHeight: 44,
+        marginTop: 40,
+        justifyContent: 'center',
+    },
+    refreshText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: theme.colors.primary,
+    },
+    spinning: {
+        transform: [{ rotate: '360deg' }],
+    },
     stat_container: {
         flex: 1,
         backgroundColor: theme.colors.background,
         padding: 20,
-        flexDirection: 'row',        // ← put elements horizontally
+        flexDirection: 'row',
     },
     stat_text: {
         color: theme.colors.onBackground,
@@ -371,7 +464,8 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     certifiedBadge: {
-        fontSize: 14,
+        paddingTop: 20,
+        fontSize: 18,
         color: theme.colors.primary,
         fontWeight: "bold",
     },

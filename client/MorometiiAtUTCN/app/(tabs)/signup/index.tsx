@@ -24,12 +24,17 @@ const SignUpPage: React.FC = () => {
             Alert.alert("Passwords do not match!");
             return null;
         }
-        const result = await _handleSignUp(setLoading, username, email, password, confirmpassword, router);
+        const result = await _handleSignUp(setLoading, username, email, password, router);
         if (result && result.data && result.data.IsValid && result.response.ok) {
             await AsyncStorage.multiSet([
-                ['username', username],
+                ['username', result.data.Username || ''],
                 ['email', email.trim()],
-                ['password', password.trim()]
+                ['password', password.trim()],
+                ['isVerified', result.data.isVerified ? 'true' : 'false'],
+                ['certification_img', 'false'],
+                ['reputation', '0'],
+                ['events', '0'],
+                ['id', result.data.Id.toString()],
             ]);
             router.push("/(tabs)/acasa" as RelativePathString);
         } else {
