@@ -202,13 +202,19 @@ const HomePage: React.FC = () => {
         });
     };
 
-    const closeUrgencies = urgencies
+    const closeUrgencies = userLocation 
+        ? urgencies.filter(u => {
+            const dist = distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y);
+            return dist <= 2;
+        })
+        : urgencies;
+    
     const makeLeafletHtml = (markers: databaseUrgency[]) => {
         const points = markers.map(m => ({
             lat: m.location_X,
             lon: m.location_Y,
             name: m.name,
-            desc: m.description
+            desc: m.description,
         }));
         const ptsJson = JSON.stringify(points);
         return `<!DOCTYPE html>
@@ -297,12 +303,12 @@ const HomePage: React.FC = () => {
                                 </View>
                             )
                         ) : (
-                            <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs. (în raza de 2 km)</Text>
+                            <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs.</Text>
                         )}
                     </View>
                     <View style={{ marginBottom: 10 }}>
                         <Text style={styles.title}>Urgențe Apropiate</Text>
-                        <Text style={{ color: "white" }}> Glisati in jos pentru a actualiza urgentele</Text>
+                        <Text style={{ color: theme.colors.onBackground, fontSize: 13, opacity: 0.7 }}>Glisati in jos pentru a actualiza urgentele</Text>
                     </View>
                     {/* cards list below map */}
                     {isRefreshing ?
@@ -311,10 +317,18 @@ const HomePage: React.FC = () => {
                             <View style={styles.urgencyList}>
                                 {closeUrgencies.map((u, i) => {
                                     const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y) : null;
+                                    // Determine severity color based on level
+                                    const getSeverityColor = (level: number) => {
+                                        if (level >= 8) return theme.colors.errorContainer;
+                                        if (level >= 5) return theme.colors.secondary;
+                                        return theme.colors.tertiary;
+                                    };
+                                    const severityColor = getSeverityColor(u.level);
                                     return (
                                         <TouchableOpacity
                                             key={i}
                                             style={styles.urgencyCard}
+                                            activeOpacity={0.7}
                                             onPress={() => {
                                                 // Convert to Urgenta format for the modal
                                                 const urgentaFormat: Urgenta = {
@@ -329,23 +343,38 @@ const HomePage: React.FC = () => {
                                                 setDetailsVisible(true);
                                             }}
                                         >
-                                            <View>
-                                                <Text style={styles.detailText}>{u.name}</Text>
+                                            {/* Severity badge */}
+                                            <View style={[styles.severityBadge, { backgroundColor: severityColor }]}>
+                                                <MaterialIcons name="priority-high" size={16} color={theme.colors.background} />
+                                                <Text style={styles.severityText}>{u.level}/10</Text>
                                             </View>
-                                            <View style={styles.urgencyMetaRow_Summary}>
-                                                <View style={styles.stat_container_Summary}>
-                                                    <View style={styles.stat_element_Sumarry}>
-                                                        <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
-                                                        <Text style={styles.stat_element_text_Sumarry}>{u.level}/10</Text>
+
+                                            {/* Card content */}
+                                            <View style={styles.urgencyCardContent}>
+                                                <View style={styles.urgencyTitleRow}>
+                                                    <Text style={styles.urgencyTitle}>{u.name}</Text>
+                                                </View>
+                                                
+                                                {u.description ? (
+                                                    <Text style={styles.urgencyDescription} numberOfLines={2}>{u.description}</Text>
+                                                ) : null}
+                                                
+                                                <View style={styles.urgencyMetas}>
+                                                    <View style={styles.metaItem}>
+                                                        <MaterialIcons name="place" size={16} color={theme.colors.secondary} />
+                                                        <Text style={styles.metaText}>{dist != null ? `${dist.toFixed(1)} km` : '—'}</Text>
+                                                    </View>
+                                                    <View style={styles.metaDivider} />
+                                                    <View style={styles.metaItem}>
+                                                        <MaterialIcons name="group" size={16} color={theme.colors.primary} />
+                                                        <Text style={styles.metaText}>0 Aplicanti</Text>
                                                     </View>
                                                 </View>
-                                                <View style={styles.stat_container_Summary}>
-                                                    <View style={styles.stat_element_Sumarry}>
-                                                        <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
-                                                        <Text style={styles.stat_element_text_Sumarry}>{dist != null ? `${dist.toFixed(1)} km` : '—'}</Text>
-                                                    </View>
-                                                </View>
-                                                <Text style={styles.urgencyMeta}>Aplicanți: 0</Text>
+                                            </View>
+
+                                            {/* Arrow indicator */}
+                                            <View style={styles.cardArrow}>
+                                                <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
                                             </View>
                                         </TouchableOpacity>
                                     );
@@ -353,92 +382,117 @@ const HomePage: React.FC = () => {
                             </View>
                         )}
                     {/* Details modal for selected urgency */}
-                    <Modal visible={detailsVisible} transparent animationType="slide" onRequestClose={() => setDetailsVisible(false)}>
-
-                        <ScrollView contentContainerStyle={{ paddingTop: 0 }} keyboardShouldPersistTaps="handled">
-                            <View style={styles.modalOverlay}>
-                                <View style={styles.modalContentLarge}>
-                                    {selectedUrgency ? (
-                                        <>
-                                            <Text style={styles.detailTitle}>{selectedUrgency.name}</Text>
-                                            <Text style={styles.detailText}>{selectedUrgency.description}</Text>
-                                            <View style={styles.stat_container}>
-                                                <View style={styles.stat_element}>
-                                                    <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
-                                                    <Text style={styles.stat_element_text}>Prioritate</Text>
-                                                </View>
-                                                <View style={styles.stat_element}>
-                                                    <Text style={styles.stat_text}>{selectedUrgency.score}/10</Text>
-                                                </View>
+                    <Modal visible={detailsVisible} transparent animationType="fade" onRequestClose={() => setDetailsVisible(false)}>
+                        <View style={styles.modalFullScreen}>
+                            {selectedUrgency ? (
+                                <>
+                                    {/* Full-screen map background */}
+                                    <View style={styles.mapFullScreen}>
+                                        {hasMapsModule && MapView ? (
+                                            <MapView
+                                                style={styles.map}
+                                                initialRegion={{
+                                                    latitude: parseCoord(selectedUrgency.location[0]),
+                                                    longitude: parseCoord(selectedUrgency.location[1]),
+                                                    latitudeDelta: 0.02,
+                                                    longitudeDelta: 0.02,
+                                                }}
+                                            >
+                                                {Marker ? (
+                                                    <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
+                                                ) : null}
+                                            </MapView>
+                                        ) : hasWebView && WebView ? (
+                                            <WebView
+                                                originWhitelist={["*"]}
+                                                source={{
+                                                    html: makeLeafletHtml([{
+                                                        name: selectedUrgency.name,
+                                                        id: selectedUrgency.id,
+                                                        description: selectedUrgency.description,
+                                                        level: selectedUrgency.score,
+                                                        location_X: parseCoord(selectedUrgency.location[0]),
+                                                        location_Y: parseCoord(selectedUrgency.location[1]),
+                                                    }])
+                                                }}
+                                                style={styles.map}
+                                            />
+                                        ) : (
+                                            <View style={styles.mapUnavailable}>
+                                                <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
                                             </View>
-                                            {userLocation ? (
-                                                <View style={styles.stat_container}>
-                                                    <View style={styles.stat_element}>
-                                                        <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
-                                                        <Text style={styles.stat_element_text}>Distanță</Text>
-                                                    </View>
-                                                    <View style={styles.stat_element}>
-                                                        <Text style={styles.stat_text}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(1)} km</Text>
+                                        )}
+                                    </View>
+
+                                    {/* Close button (top-left) */}
+                                    <TouchableOpacity 
+                                        style={styles.closeButtonOverlay}
+                                        onPress={() => setDetailsVisible(false)}
+                                    >
+                                        <MaterialIcons name="arrow-back" size={28} color="white" />
+                                    </TouchableOpacity>
+
+                                    {/* Bottom card with details */}
+                                    <View style={styles.detailsCard}>
+                                        <ScrollView showsVerticalScrollIndicator={false}>
+                                            {/* Severity badge */}
+
+                                            {/* Title */}
+                                            <Text style={styles.cardTitle}>{selectedUrgency.name}</Text>
+
+                                            {/* Description */}
+                                            <Text style={styles.cardDescription}>{selectedUrgency.description}</Text>
+
+                                            {/* Info stats */}
+                                            <View style={styles.infoStats}>
+                                                <View style={styles.infoStatItem}>
+                                                    <MaterialIcons name="priority-high" size={20} color={theme.colors.errorContainer} />
+                                                    <View style={styles.infoStatText}>
+                                                        <Text style={styles.infoStatLabel}>Prioritate</Text>
+                                                        <Text style={styles.infoStatValue}>{selectedUrgency.score}/10</Text>
                                                     </View>
                                                 </View>
-                                            ) : null}
 
-                                            <TouchableOpacity style={styles.intervineButton} onPress={() => handleIntervene(selectedUrgency)}>
-                                                <Text style={styles.intervineButtonText}>Intervine</Text>
-                                            </TouchableOpacity>
-
-                                            <View style={styles.detailMapWrapper}>
-                                                {hasMapsModule && MapView ? (
-                                                    <MapView
-                                                        style={styles.map}
-                                                        initialRegion={{
-                                                            latitude: parseCoord(selectedUrgency.location[0]),
-                                                            longitude: parseCoord(selectedUrgency.location[1]),
-                                                            latitudeDelta: 0.01,
-                                                            longitudeDelta: 0.01,
-                                                        }}
-                                                    >
-                                                        {Marker ? (
-                                                            <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
-                                                        ) : null}
-                                                    </MapView>
-                                                ) : hasWebView && WebView ? (
-                                                    <WebView
-                                                        originWhitelist={["*"]}
-                                                        source={{
-                                                            html: makeLeafletHtml([{
-                                                                name: selectedUrgency.name,
-                                                                id: selectedUrgency.id,
-                                                                description: selectedUrgency.description,
-                                                                level: selectedUrgency.score,
-                                                                location_X: parseCoord(selectedUrgency.location[0]),
-                                                                location_Y: parseCoord(selectedUrgency.location[1]),
-                                                            }])
-                                                        }}
-                                                        style={styles.map}
-                                                    />
-                                                ) : (
-                                                    <View style={styles.mapUnavailable}>
-                                                        <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
+                                                {userLocation ? (
+                                                    <View style={styles.infoStatItem}>
+                                                        <MaterialIcons name="place" size={20} color={theme.colors.secondary} />
+                                                        <View style={styles.infoStatText}>
+                                                            <Text style={styles.infoStatLabel}>Distanță</Text>
+                                                            <Text style={styles.infoStatValue}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(1)} km</Text>
+                                                        </View>
                                                     </View>
-                                                )}
+                                                ) : null}
                                             </View>
 
-                                            <TouchableOpacity style={styles.openMapButton} onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}>
-                                                <Text style={styles.openMapButtonText}>Deschide în Google Maps</Text>
-                                            </TouchableOpacity>
+                                            {/* Action buttons */}
+                                            <View style={styles.actionButtonsCard}>
+                                                <TouchableOpacity 
+                                                    style={styles.primaryActionButton}
+                                                    onPress={() => handleIntervene(selectedUrgency)}
+                                                >
+                                                    <MaterialIcons name="directions" size={20} color={theme.colors.onPrimary} />
+                                                    <Text style={styles.primaryActionText}>Intervine</Text>
+                                                </TouchableOpacity>
 
-                                            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setDetailsVisible(false)}>
-                                                <Text style={styles.modalCloseButtonText}>Închide</Text>
-                                            </TouchableOpacity>
-                                        </>
-                                    ) : (
-                                        <ActivityIndicator size="large" color={theme.colors.primary} />
-                                    )}
+                                                <TouchableOpacity 
+                                                    style={styles.secondaryActionButton}
+                                                    onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}
+                                                >
+                                                    <MaterialIcons name="map" size={20} color={theme.colors.primary} />
+                                                    <Text style={styles.secondaryActionText}>Google Maps</Text>
+                                                </TouchableOpacity>
+                                            </View>
+
+                                            <View style={{ height: 20 }} />
+                                        </ScrollView>
+                                    </View>
+                                </>
+                            ) : (
+                                <View style={styles.loadingContainer}>
+                                    <ActivityIndicator size="large" color={theme.colors.primary} />
                                 </View>
-                            </View>
-                            <View style={{ height: 50 }} />
-                        </ScrollView>
+                            )}
+                        </View>
                     </Modal>
                 </ScrollView >
             )}
@@ -557,7 +611,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     stat_text: {
-        color: theme.colors.onBackground,
+        color: theme.colors.onErrorContainer,
         fontSize: 30,
     },
     stat_element_text: {
@@ -587,10 +641,11 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     mapWrapper: {
-        height: 300,
+        height: 180,
         borderRadius: 12,
         overflow: "hidden",
         marginBottom: 12,
+        marginTop:30,
     },
     map: {
         width: "100%",
@@ -624,9 +679,75 @@ const styles = StyleSheet.create({
     /* mapProviderBadge removed */
     urgencyCard: {
         backgroundColor: theme.colors.backdrop,
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 12,
         marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    severityBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 10,
+        marginRight: 12,
+        gap: 4,
+    },
+    severityText: {
+        color: theme.colors.errorContainer,
+        fontWeight: '600',
+        fontSize: 12,
+    },
+    urgencyCardContent: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    urgencyTitleRow: {
+        marginBottom: 4,
+    },
+    urgencyTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.onBackground,
+    },
+    urgencyDescription: {
+        fontSize: 13,
+        color: theme.colors.onBackground,
+        opacity: 0.7,
+        marginBottom: 8,
+        lineHeight: 18,
+    },
+    urgencyMetas: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    metaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    metaText: {
+        fontSize: 12,
+        color: theme.colors.onBackground,
+        opacity: 0.8,
+    },
+    metaDivider: {
+        width: 1,
+        height: 14,
+        backgroundColor: theme.colors.outline,
+        opacity: 0.3,
+    },
+    cardArrow: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 8,
     },
     urgencyCardDescription: {
         fontSize: 14,
@@ -671,13 +792,148 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         padding: 10,
-
     },
     modalContentLarge: {
         width: "100%",
         backgroundColor: theme.colors.background,
         borderRadius: 12,
         padding: 16,
+    },
+    modalFullScreen: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+        position: 'relative',
+    },
+    mapFullScreen: {
+        ...StyleSheet.absoluteFillObject,
+        height: '100%',
+        width: '100%',
+    },
+    closeButtonOverlay: {
+        position: 'absolute',
+        top: 50,
+        left: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    detailsCard: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: theme.colors.background,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingTop: 20,
+        paddingHorizontal: 20,
+        maxHeight: '75%',
+        zIndex: 5,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    cardBadgeContainer: {
+        marginBottom: 16,
+    },
+    severityBadgeLarge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        gap: 8,
+        alignSelf: 'flex-start',
+    },
+    severityTextLarge: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    cardTitle: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: theme.colors.onBackground,
+        marginBottom: 10,
+    },
+    cardDescription: {
+        fontSize: 14,
+        color: theme.colors.onBackground,
+        opacity: 0.75,
+        lineHeight: 20,
+        marginBottom: 16,
+    },
+    infoStats: {
+        gap: 12,
+        marginBottom: 20,
+    },
+    infoStatItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.backdrop,
+        padding: 12,
+        borderRadius: 12,
+        gap: 12,
+    },
+    infoStatText: {
+        flex: 1,
+    },
+    infoStatLabel: {
+        fontSize: 12,
+        color: theme.colors.onBackground,
+        opacity: 0.7,
+    },
+    infoStatValue: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.onBackground,
+        marginTop: 2,
+    },
+    actionButtonsCard: {
+        gap: 12,
+    },
+    primaryActionButton: {
+        backgroundColor: theme.colors.primary,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    primaryActionText: {
+        color: theme.colors.onPrimary,
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    secondaryActionButton: {
+        backgroundColor: theme.colors.backdrop,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        borderWidth: 1.5,
+        borderColor: theme.colors.primary,
+    },
+    secondaryActionText: {
+        color: theme.colors.primary,
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     detailTitle: {
         fontSize: 30,

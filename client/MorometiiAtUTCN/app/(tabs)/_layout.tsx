@@ -92,7 +92,7 @@ const BottomBar: React.FC = () => {
             style={stylesBottom.tabButton}
             onPress={() => router.push(`/(tabs)/${tab.key}` as RelativePathString)}
           >
-            <Ionicons name={tab.icon as any} size={40} color={color} />
+            <Ionicons name={tab.icon as any} size={30} color={color} />
             <Text style={[stylesBottom.tabLabel, { color }]}>{tab.label}</Text>
           </TouchableOpacity>
         );
@@ -107,16 +107,16 @@ const stylesBottom = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 6,
-    paddingBottom: 50,
+    paddingBottom: 20,
     elevation: 6,
-    height: 120,
+    height: 80,
   },
   tabButton: {
     alignItems: 'center',
     flex: 1,
   },
   tabLabel: {
-    fontSize: 14,
+    fontSize: 8,
     marginTop: 2,
   },
 });

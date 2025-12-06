@@ -3,7 +3,7 @@ import { useDynamicTheme } from "@/theme/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RelativePathString, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 const theme = useDynamicTheme();
 
@@ -47,6 +47,9 @@ const SignUpPage: React.FC = () => {
 
     return (
         <View style={styles.container}>
+            <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+            
+
             <Text style={styles.title}>Înregistrare</Text>
 
             <TextInput
@@ -163,9 +166,18 @@ const styles = StyleSheet.create({
         backgroundColor: "#ccc",
     },
     buttonText: {
-        color: theme.colors.onBackground,
+        color: theme.colors.onPrimary,
         fontSize: 18,
         fontWeight: "bold",
+    },
+    logo: {
+        width: 250,
+        height: 250,
+        marginBottom: 20,
+        position: 'absolute',
+        top: 28,
+        zIndex: 10,
+        alignSelf: 'center',
     },
 });
 
