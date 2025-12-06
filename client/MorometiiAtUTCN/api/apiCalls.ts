@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 
 const API_BASE = "http://192.168.232.182:5024";
@@ -148,64 +149,62 @@ export async function _handleSignUp(
     setLoading(false);
   }
 }
-// export async function checkLogin(email: string, password: string) {
-//   try {
-//     const encodedEmail = email.trim();
-//     const encodedPassword = password.trim();
-//     const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodedEmail}&Password=${encodedPassword}`;
-//     console.log("🔵 Checking login credentials:", url);
+export async function checkLogin(email: string, password: string) {
+  try {
+    const encodedEmail = email.trim();
+    const encodedPassword = password.trim();
+    const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodedEmail}&Password=${encodedPassword}`;
+    console.log("🔵 Checking login credentials:", url);
 
-//     const controller = new AbortController();
-//     const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-//     const response = await fetch(url, {
-//       method: "GET",
-//       signal: controller.signal,
-//     });
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+    });
 
-//     clearTimeout(timeoutId);
+    clearTimeout(timeoutId);
 
-//     if (!response.ok) {
-//       console.log("❌ Response not OK:", response.status);
-//       return null;
-//     }
+    if (!response.ok) {
+      console.log(" Response not OK:", response.status);
+      return null;
+    }
 
-//     const data: LoginResponse = await response.json();
-//     console.log("✅ Login check response:", data);
+    const data: LoginResponse = await response.json();
+    console.log("✅ Login check response:", data);
 
-//     // Return data that matches your index.tsx expectations
-//     if (data.IsValid) {
-//       // Store user data in AsyncStorage for the app to use
-//       await AsyncStorage.setItem("id", data.Id.toString());
-//       await AsyncStorage.setItem("username", data.Username || "");
-//       await AsyncStorage.setItem("email", email);
-//       await AsyncStorage.setItem("password", password);
-//       await AsyncStorage.setItem("isVerified", data.isVerified.toString());
+    if (data.IsValid) {
+      await AsyncStorage.setItem("id", data.Id.toString());
+      await AsyncStorage.setItem("username", data.Username || "");
+      await AsyncStorage.setItem("email", email);
+      await AsyncStorage.setItem("password", password);
+      await AsyncStorage.setItem("isVerified", data.isVerified.toString());
 
-//       if (data.certification_img) {
-//         await AsyncStorage.setItem("certification_img", data.certification_img);
-//       }
-//       if (data.reputation !== undefined && data.reputation !== null) {
-//         await AsyncStorage.setItem("reputation", data.reputation.toString());
-//       }
-//       if (data.EmCount !== undefined && data.EmCount !== null) {
-//         await AsyncStorage.setItem("events", data.EmCount.toString());
-//       }
+      if (data.certification_img) {
+        await AsyncStorage.setItem("certification_img", data.certification_img);
+      }
+      if (data.reputation !== undefined && data.reputation !== null) {
+        await AsyncStorage.setItem("reputation", data.reputation.toString());
+      }
+      if (data.EmCount !== undefined && data.EmCount !== null) {
+        await AsyncStorage.setItem("events", data.EmCount.toString());
+      }
 
-//       return {
-//         isValid: true,
-//         exists: true,
-//         ...data,
-//       };
-//     }
+      return {
+        isValid: true,
+        exists: true,
+        ...data,
+      };
+    }
 
-//     return {
-//       isValid: false,
-//       exists: false,
-//       error: data.Error || "Invalid credentials",
-//     };
-//   } catch (error: any) {
-//     console.error("❌ checkLogin error:", error.message);
-//     return null;
-//   }
-// }
+    return {
+      isValid: false,
+      exists: false,
+      error: data.Error || "Invalid credentials",
+    };
+  } catch (error: any) {
+    console.error("checkLogin error:", error.message);
+    return null;
+  }
+}
