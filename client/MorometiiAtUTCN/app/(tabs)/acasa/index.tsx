@@ -94,7 +94,7 @@ const HomePage: React.FC = () => {
         //         }
         //     }
         // )
-        // setIsRefreshing(false);
+        setIsRefreshing(false);
     }
     const loadUserData = async () => {
         try {
@@ -290,13 +290,13 @@ const HomePage: React.FC = () => {
                             <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs. (în raza de 1 km)</Text>
                         )}
                     </View>
-                    <View style={{ marginBottom: 10 }}>
+                    {/* <View style={{ marginBottom: 10 }}>
                         <Text style={styles.title}>Urgențe Apropiate</Text>
                         <Button mode="contained" style={{ backgroundColor: theme.colors.primary }} onPress={() => handleRefreshUrgencies}>
 
                             <Text style={styles.buttonText}>Actualizare urgente</Text>
                         </Button>
-                    </View>
+                    </View> */}
                     {/* cards list below map */}
                     {isRefreshing ?
                         (<ActivityIndicator size={50} color={theme.colors.primary} style={{ marginTop: 50 }} />

@@ -30,6 +30,7 @@ const SignInPage: React.FC = () => {
                 ['reputation', result.data.reputation ? (result.data.reputation).toString() : '0'],
                 ['events', result.data.emCount ? (result.data.emCount).toString() : '0'],
                 ['id', (result.data.id).toString() || '0'],
+                ['isAdmin', result.data.isAdmin === true ? 'true' : 'false'],
             ]);
             router.push("/(tabs)/acasa" as RelativePathString);
         } else if (result) {

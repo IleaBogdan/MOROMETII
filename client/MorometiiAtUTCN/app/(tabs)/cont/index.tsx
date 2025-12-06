@@ -25,6 +25,7 @@ interface UserData {
     reputation: number | null;
     events: number | null;
     id: number;
+    isAdmin: boolean | null;
 }
 
 const AccountPage: React.FC = () => {
@@ -63,9 +64,9 @@ const AccountPage: React.FC = () => {
 
                             const keys = await AsyncStorage.getAllKeys();
                             await AsyncStorage.multiRemove(keys);
-                            await AsyncStorage.clear();
+                            userData && setUserData(null);
 
-                            router.replace("/(tabs)/signin" as RelativePathString);
+                            setTimeout(() => router.replace("/(tabs)/signin" as RelativePathString), 1000);
                         } catch (error) {
                             console.error('Failed to logout:', error);
                             Alert.alert("Eroare", "Nu s-a putut efectua deconectarea. Te rugăm să încerci din nou.");
@@ -114,6 +115,7 @@ const AccountPage: React.FC = () => {
                         ['reputation', result.reputation !== undefined ? result.reputation.toString() : '0'],
                         ['events', result.emCount !== undefined ? result.emCount.toString() : '0'],
                         ['id', result.id ? result.id.toString() : '0'],
+                        ['isAdmin', result.isAdmin ? 'true' : 'false'],
                     ]);
                 }
             } catch (fetchError) {
@@ -141,6 +143,7 @@ const AccountPage: React.FC = () => {
             const reputation = await AsyncStorage.getItem("reputation");
             const events = await AsyncStorage.getItem("events");
             const id = await AsyncStorage.getItem("id");
+            const isAdmin = await AsyncStorage.getItem("isAdmin");
 
             setUserData({
                 username: username || "",
@@ -150,6 +153,7 @@ const AccountPage: React.FC = () => {
                 reputation: reputation ? parseInt(reputation) : 0,
                 events: events ? parseInt(events) : 0,
                 id: id ? parseInt(id) : 0,
+                isAdmin: isAdmin === 'true' ? true : false,
             });
         } catch (error) {
             console.error("Error loading cached user data:", error);
@@ -224,7 +228,7 @@ const AccountPage: React.FC = () => {
             } as any);
             formData.append("UserId", String(userId));
 
-            const response = await fetch(API_BASE+"/api/UserManager/UploadCertificate", {
+            const response = await fetch(API_BASE + "/api/UserManager/UploadCertificate", {
                 method: "POST",
                 body: formData,
                 // Don't set Content-Type; let fetch add the multipart boundary
@@ -289,8 +293,10 @@ const AccountPage: React.FC = () => {
                 </View>
                 <Text style={styles.userGreeting}>Bine ai venit, {userData.username}!</Text>
                 <Text style={styles.userEmail}>{userData.email}</Text>
+                <Text>{userData.isAdmin}</Text>
                 {userData.isVerified && (
                     <Text style={styles.certifiedBadge}>✓ Certificat</Text>
+
                 )}
             </View>
 

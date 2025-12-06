@@ -6,6 +6,8 @@ import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Appbar } from 'react-native-paper';
 
 import { addToHistory } from '@/history/navigationHistory';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAdmin } from '@/hooks/useAdmin';
 
 export const TopBar: React.FC = () => {
   const pathname = usePathname();
@@ -67,19 +69,16 @@ const stylesHeader = StyleSheet.create({
   },
 });
 
-const BottomBar: React.FC = () => {
+const BottomBar: React.FC<{ admin: Boolean }> = ({ admin }) => {
   const pathname = usePathname();
-
   const tabs = [
-    // { key: 'urgente', label: 'Urgente', icon: 'warning' },
-    // { key: 'cursuri', label: 'Cursuri', icon: 'school' },
-    // { key: 'harta', label: 'Hartă', icon: 'map' },
-    // { key: 'raporteaza', label: 'Raportează', icon: 'alert-circle' },
-    // { key: 'settings', label: 'Setări', icon: 'settings' },
+    { key: 'admin', label: 'Raporteaza', icon: 'shield-checkmark' },
     { key: 'acasa', label: 'Urgențe', icon: 'warning' },
     { key: 'cont', label: 'Cont', icon: 'person' },
   ];
-
+  if (!admin) {
+    tabs.splice(0, 1);
+  }
   return (
     <Appbar style={[stylesBottom.container, { backgroundColor: theme.colors.background }]}>
       {tabs.map((tab) => {
@@ -121,24 +120,38 @@ const stylesBottom = StyleSheet.create({
   },
 });
 
+
 const TabLayout = () => {
   const pathname = usePathname();
-  const isOnSign = !pathname.includes('/signin') && !pathname.includes('/signup');
+  const isAdmin = useAdmin();
+  const isOnSign = !pathname.includes("/signin") && !pathname.includes("/signup");
+  console.log("everything", isAdmin);
+  if (isAdmin === null) return null;
+
   return (
     <Tabs
-      tabBar={() => (!isOnSign ? null : <BottomBar />)}
+      tabBar={() => (!isOnSign ? null : <BottomBar admin={isAdmin} />)}
       screenOptions={{
         header: () => (!isOnSign ? null : <TopBar />),
       }}
     >
-      <Tabs.Screen name="cont" options={{ title: 'Cont' }} />
-      <Tabs.Screen name="urgente" options={{ title: 'Urgente' }} />
-      <Tabs.Screen name="cursuri" options={{ title: 'Cursuri' }} />
-      <Tabs.Screen name="harta" options={{ title: 'Hartă' }} />
-      <Tabs.Screen name="raporteaza" options={{ title: 'Raportează' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Setări' }} />
+      <Tabs.Screen name="cont" options={{ title: "Cont" }} />
+
+      {isAdmin && (
+        <Tabs.Screen
+          name="raporteaza"
+          options={{ title: "Raportează" }}
+        />
+      )}
+
+      {/* Common tabs */}
+      <Tabs.Screen name="urgente" options={{ title: "Urgente" }} />
+      <Tabs.Screen name="cursuri" options={{ title: "Cursuri" }} />
+      <Tabs.Screen name="harta" options={{ title: "Hartă" }} />
+      <Tabs.Screen name="settings" options={{ title: "Setări" }} />
     </Tabs>
   );
 };
+
 
 export default TabLayout;

@@ -35,6 +35,7 @@ const SignUpPage: React.FC = () => {
                 ['reputation', '0'],
                 ['events', '0'],
                 ['id', result.data.Id.toString()],
+                ['isAdmin', 'false'],
             ]);
             router.push("/(tabs)/acasa" as RelativePathString);
         } else {

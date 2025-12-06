@@ -12,6 +12,7 @@ interface LoginResponse {
   Username: string | null;
   isImage: boolean;
   reputation: number | null;
+  isAdmin: boolean;
 }
 
 export async function handleSignIn(
@@ -169,7 +170,7 @@ export async function checkLogin(email: string, password: string) {
       await AsyncStorage.setItem("email", email);
       await AsyncStorage.setItem("password", password);
       await AsyncStorage.setItem("isVerified", data.isVerified.toString());
-
+      await AsyncStorage.setItem("isAdmin", data.isAdmin ? "true" : "false");
       if (data.isImage) {
         await AsyncStorage.setItem(
           "certification_img",
