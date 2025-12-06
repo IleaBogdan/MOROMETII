@@ -1,11 +1,11 @@
-import { Tabs, usePathname, RelativePathString } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useDynamicTheme } from '@/theme/theme';
-import { Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Appbar } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
+import { RelativePathString, router, Tabs, usePathname } from 'expo-router';
 import React, { useEffect } from 'react';
-import { router } from 'expo-router';
-import { addToHistory, getPrevPath } from '@/history/navigationHistory';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Appbar } from 'react-native-paper';
+
+import { addToHistory } from '@/history/navigationHistory';
 
 export const TopBar: React.FC = () => {
   const theme = useDynamicTheme();
@@ -23,7 +23,7 @@ export const TopBar: React.FC = () => {
   const canGoBack = () => {
     return pathname !== '/(tabs)/acasa' && pathname !== '/(tabs)';
   };
-
+   const isOnSign = pathname === '/(tabs)/signin' || pathname === '/(tabs)/signup';
   return (
     <Appbar.Header
       style={[styles.header, { backgroundColor: theme.colors.background }]}
@@ -39,7 +39,7 @@ export const TopBar: React.FC = () => {
       ) : (
         <Appbar.Action icon="menu" color="transparent" />
       )}*/}
-      <Appbar.Content title={pageName} style={{ alignItems: 'center' }} />
+      {isOnSign && <Appbar.Content title={pageName} style={{ alignItems: 'center' }} />}
       {/*<Appbar.Action
         icon="account-circle"
         color={theme.colors.primary}
@@ -78,7 +78,7 @@ const BottomBar: React.FC = () => {
     // { key: 'harta', label: 'Hartă', icon: 'map' },
     // { key: 'raporteaza', label: 'Raportează', icon: 'alert-circle' },
     // { key: 'settings', label: 'Setări', icon: 'settings' },
-    { key: 'acasa', label: 'Acasă', icon: 'home' },
+    { key: 'acasa', label: 'Urgențe', icon: 'warning' },
     { key: 'cont', label: 'Cont', icon: 'person' },
   ];
 
@@ -94,7 +94,7 @@ const BottomBar: React.FC = () => {
             style={stylesBottom.tabButton}
             onPress={() => router.push(`/(tabs)/${tab.key}` as RelativePathString)}
           >
-            <Ionicons name={tab.icon as any} size={22} color={color} />
+            <Ionicons name={tab.icon as any} size={40} color={color} />
             <Text style={[stylesBottom.tabLabel, { color }]}>{tab.label}</Text>
           </TouchableOpacity>
         );
@@ -109,23 +109,26 @@ const stylesBottom = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 6,
-    paddingBottom: 16,
+    paddingBottom: 50,
     elevation: 6,
+    height:120,
   },
   tabButton: {
     alignItems: 'center',
     flex: 1,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 14,
     marginTop: 2,
   },
 });
 
 const TabLayout = () => {
+  const pathname = usePathname();
+  const isOnSign = pathname === '/(tabs)/signin' || pathname === '/(tabs)/signup';
   return (
     <Tabs
-      tabBar={() => (<BottomBar />)}
+      tabBar={() => (isOnSign ? <BottomBar /> : null)}
       screenOptions={{
         header: () => <TopBar />,
       }}
