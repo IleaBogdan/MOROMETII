@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { MaterialIcons } from "@expo/vector-icons";
-import { View, Text, Alert, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Linking, ScrollView, RefreshControl, Platform } from "react-native";
-import { theme } from '@/theme/theme'
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Button } from "react-native-paper";
 import { API_BASE } from "@/api/apiCalls";
+import { theme } from '@/theme/theme';
+import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Linking, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 // Platform-safe map imports
 let MapView: any = null;
 let Marker: any = null;
@@ -71,6 +70,8 @@ const HomePage: React.FC = () => {
     const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const [selectedUrgency, setSelectedUrgency] = useState<Urgenta | null>(null);
     const [detailsVisible, setDetailsVisible] = useState(false);
+    // When set, only emergencies with this ID remain clickable
+    const [activeEmergencyId, setActiveEmergencyId] = useState<number | null>(null);
 
     useEffect(() => {
         loadUserData();
@@ -130,7 +131,16 @@ const HomePage: React.FC = () => {
             return;
         }
 
-        // 2. Check if already intervening (UX optimization)
+        // 2. Prevent starting a different intervention while another is active
+        if (activeEmergencyId !== null && activeEmergencyId !== emergencyId) {
+            Alert.alert("Blocare", "O altă intervenție este activă. Finalizați sau așteptați acea intervenție.");
+            return;
+        }
+
+        // mark this emergency as the active one (locks other items)
+        if (activeEmergencyId === null) setActiveEmergencyId(emergencyId);
+
+        // 3. Check if already intervening (UX optimization)
         if (isUserIntervening(emergencyId, userId)) {
             openInMaps(parseCoord(urgency.location[0]), parseCoord(urgency.location[1]));
             return;
@@ -196,13 +206,15 @@ const HomePage: React.FC = () => {
                 console.log("API Logic Error:", data.error);
                 const errorMessage = data.error || "A apărut o eroare necunoscută.";
                 Alert.alert("Eroare intervenție", errorMessage);
+                // if this call had set the activeEmergencyId, clear it because it failed
+                if (activeEmergencyId === emergencyId) setActiveEmergencyId(null);
             }
 
         } catch (error) {
             console.error("Error applying for emergency:", error);
-            // Differentiate between generic errors and the custom error we threw above
             const msg = error instanceof Error ? error.message : "Nu s-a putut contacta serverul.";
             Alert.alert("Eroare", msg);
+            if (activeEmergencyId === emergencyId) setActiveEmergencyId(null);
         } finally {
             setIsApplying(false);
         }
@@ -440,11 +452,15 @@ const HomePage: React.FC = () => {
                                     return (
                                         <TouchableOpacity
                                             key={i}
+                                            disabled={activeEmergencyId !== null && activeEmergencyId !== u.id}
                                             style={[
                                                 styles.urgencyCard,
-                                                isIntervening && { backgroundColor: theme.colors.primaryContainer }
+                                                isIntervening && { backgroundColor: theme.colors.primaryContainer },
+                                                (activeEmergencyId !== null && activeEmergencyId !== u.id) && { opacity: 0.45 }
                                             ]}
                                             onPress={() => {
+                                                // prevent click if another emergency is active
+                                                if (activeEmergencyId !== null && activeEmergencyId !== u.id) return;
                                                 const urgencyDetails: Urgenta = {
                                                     name: u.name,
                                                     description: u.description,
@@ -454,7 +470,6 @@ const HomePage: React.FC = () => {
                                                     id: u.id,
                                                 }
                                                 setSelectedUrgency(urgencyDetails);
-                                                // Removed immediate call to handleIntervene
                                                 setDetailsVisible(true);
                                             }}
                                         >
@@ -524,7 +539,9 @@ const HomePage: React.FC = () => {
                                                     isApplying && { opacity: 0.7 }
                                                 ]}
                                                 onPress={() => handleIntervene(selectedUrgency)} // Always call handleIntervene
-                                                disabled={isApplying} // Only disable if applying is in progress
+                                                disabled={
+                                                    isApplying || (activeEmergencyId !== null && activeEmergencyId !== selectedUrgency?.id)
+                                                } // disable if applying or another emergency is active
                                             >
                                                 {isApplying ? (
                                                     <ActivityIndicator color={theme.colors.onBackground} />
