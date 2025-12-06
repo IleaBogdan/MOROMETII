@@ -135,5 +135,24 @@ namespace server.Controllers
         }
 
         // previous DeleteEmergency placeholder removed and replaced with working implementation
+
+        [HttpGet]
+        [Route("GetEmergencyCount")]
+        [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
+        public IActionResult GetEmergencyCount(int id)
+        {
+            using var connection = new SqlConnection(__connectionString);
+            connection.Open();
+
+            string sql = @"SELECT ActiveApplyers FROM Emergency WHERE ID=@Id";
+
+            using var command = new SqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@Id", id);
+
+            var result = command.ExecuteScalar();
+            int activeApplyers = result == DBNull.Value || result == null ? 0 : Convert.ToInt32(result);
+
+            return Ok(activeApplyers);
+        }
     }
 }

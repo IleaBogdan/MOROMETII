@@ -105,6 +105,7 @@ namespace server.Controllers
             public string Error { get; set; }
             public string Names { get; set; } // they are splited via a ,
         }
+
         [HttpPost]
         [Route("ApplyFor")]
         [ProducesResponseType(typeof(ApplyResponse), StatusCodes.Status200OK)]
@@ -132,8 +133,8 @@ namespace server.Controllers
             string username = reader1.GetString(reader1.GetOrdinal("Name"));
             reader1.Close();
 
-            // 2. Get current applyers usernames
-            sql = @"SELECT ApplyersUsernames FROM Emergency WHERE ID = @Id";
+            // 2. Get current applyers usernames and ActiveApplyers count
+            sql = @"SELECT ApplyersUsernames, ActiveApplyers FROM Emergency WHERE ID = @Id";
             using var command2 = new SqlCommand(sql, connection);
             command2.Parameters.AddWithValue("@Id", EmergencyId);
 
@@ -151,6 +152,11 @@ namespace server.Controllers
             // Handle NULL values properly
             int applyersIndex = reader2.GetOrdinal("ApplyersUsernames");
             string currentUsernames = reader2.IsDBNull(applyersIndex) ? "" : reader2.GetString(applyersIndex);
+
+            // Get ActiveApplyers, handle NULL as 0
+            int activeApplyersIndex = reader2.GetOrdinal("ActiveApplyers");
+            int currentActiveApplyers = reader2.IsDBNull(activeApplyersIndex) ? 0 : reader2.GetInt32(activeApplyersIndex);
+
             reader2.Close();
 
             // 3. Append new username (avoid duplicate comma)
@@ -158,13 +164,20 @@ namespace server.Controllers
                 ? username + ","
                 : currentUsernames + username + ",";
 
-            // 4. UPDATE the existing record (not INSERT!)
-            sql = @"UPDATE Emergency SET ApplyersUsernames = @Usernames WHERE ID = @EmergencyId";
+            // Increment ActiveApplyers
+            int newActiveApplyers = currentActiveApplyers + 1;
+
+            // 4. UPDATE the existing record with both fields
+            sql = @"UPDATE Emergency 
+            SET ApplyersUsernames = @Usernames, 
+                ActiveApplyers = @ActiveApplyers 
+            WHERE ID = @EmergencyId";
+
             using var command3 = new SqlCommand(sql, connection);
             command3.Parameters.AddWithValue("@Usernames", newUsernames);
+            command3.Parameters.AddWithValue("@ActiveApplyers", newActiveApplyers);
             command3.Parameters.AddWithValue("@EmergencyId", EmergencyId);
 
-            // Line 145 - This should be ExecuteNonQuery for UPDATE
             int rowsAffected = command3.ExecuteNonQuery();
 
             if (rowsAffected > 0)

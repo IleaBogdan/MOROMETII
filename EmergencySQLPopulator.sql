@@ -6,7 +6,7 @@ WHERE Id = 6;
 
 select * from Emergency
 
-DELETE FROM Emergency;
+# DELETE FROM Emergency;
 
 -- Insert emergency data with random coordinates
 INSERT INTO Emergency (Name, Lvl_Emergency, Description, Location_X, Location_Y) 
