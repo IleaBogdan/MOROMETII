@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
 import { RelativePathString, useRouter } from "expo-router";
-import { theme } from "@/theme/theme";
+import { useDynamicTheme } from "@/theme/theme";
 
 
+const theme = useDynamicTheme();
 
 const SignUpPage: React.FC = () => {
     const [username, setUsername] = useState("");
@@ -29,6 +30,7 @@ const SignUpPage: React.FC = () => {
 
         setLoading(true);
         try {
+            // API call to database (placeholder)
             const response = await fetch("https://api.example.com/signup", {
                 method: "POST",
                 headers: {

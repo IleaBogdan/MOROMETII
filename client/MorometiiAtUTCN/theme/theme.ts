@@ -84,5 +84,4 @@ export const useDynamicTheme = (): MD3Theme => {
     },
   };
 };
-// eslint-disable-next-line react-hooks/rules-of-hooks
 export const theme = useDynamicTheme();
