@@ -23,7 +23,7 @@ export const TopBar: React.FC = () => {
   const canGoBack = () => {
     return pathname !== '/(tabs)/acasa' && pathname !== '/(tabs)';
   };
-
+  const isOnSign = pathname === '/(tabs)/signin' || pathname === '/(tabs)/signup';
   return (
     <Appbar.Header
       style={[styles.header, { backgroundColor: theme.colors.background }]}
@@ -39,7 +39,7 @@ export const TopBar: React.FC = () => {
       ) : (
         <Appbar.Action icon="menu" color="transparent" />
       )}*/}
-      <Appbar.Content title={pageName} style={{ alignItems: 'center' }} />
+      {isOnSign && <Appbar.Content title={pageName} style={{ alignItems: 'center' }} />}
       {/*<Appbar.Action
         icon="account-circle"
         color={theme.colors.primary}
@@ -124,9 +124,11 @@ const stylesBottom = StyleSheet.create({
 });
 
 const TabLayout = () => {
+  const pathname = usePathname();
+  const isOnSign = pathname === '/(tabs)/signin' || pathname === '/(tabs)/signup';
   return (
     <Tabs
-      tabBar={() => (<BottomBar />)}
+      tabBar={() => (isOnSign ? <BottomBar /> : null)}
       screenOptions={{
         header: () => <TopBar />,
       }}

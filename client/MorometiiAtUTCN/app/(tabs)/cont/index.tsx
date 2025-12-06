@@ -9,16 +9,12 @@ import {
     ActivityIndicator,
     Modal,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import { useDynamicTheme } from "@/theme/theme";
+import { theme } from "@/theme/theme";
 import { MaterialIcons } from "@expo/vector-icons";
-import { Route } from "expo-router/build/Route";
 import { RelativePathString } from "expo-router";
 import { router } from "expo-router";
-
-const theme = useDynamicTheme();
 
 interface UserData {
     username: string;
