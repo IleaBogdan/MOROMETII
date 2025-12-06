@@ -14,6 +14,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useDynamicTheme } from "@/theme/theme";
 import { MaterialIcons } from "@expo/vector-icons";
+import { Route } from "expo-router/build/Route";
+import { RelativePathString } from "expo-router";
+import { router } from "expo-router";
 
 const theme = useDynamicTheme();
 
@@ -22,6 +25,9 @@ interface UserData {
     email: string;
     is_validated: boolean;
     certification_mode: string | null;
+    reputation: string;
+    events:string;
+
 }
 
 const AccountPage: React.FC = () => {
@@ -33,12 +39,24 @@ const AccountPage: React.FC = () => {
         loadUserData();
     }, []);
 
+
+    const handleLogout = async () => {
+        try {
+            await AsyncStorage.clear();
+            router.replace("/(tabs)/signup" as RelativePathString); // replace instead of push
+        } catch (error) {
+            console.error('Failed to clear AsyncStorage:', error);
+        }
+    }
+
     const loadUserData = async () => {
         try {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
             const is_validated = await AsyncStorage.getItem("is_validated");
             const certification_mode = await AsyncStorage.getItem("certification_mode");
+            const reputation = await AsyncStorage.getItem("reputation");
+            const events = await AsyncStorage.getItem("events");
             {/*
             
             setUserData({
@@ -46,6 +64,8 @@ const AccountPage: React.FC = () => {
                 email: email || "",
                 is_validated: is_validated === "true",
                 certification_mode: certification_mode || null,
+                reputation: reputation || '0',
+                events: events || '0',
             });
 
             */}
@@ -54,6 +74,8 @@ const AccountPage: React.FC = () => {
                 email: email || "",
                 is_validated: is_validated === "true",
                 certification_mode: certification_mode || null,
+                reputation: reputation || '0',
+                events: events || '0',
             });
         } catch (error) {
             console.error("Error loading user data:", error);
@@ -147,6 +169,9 @@ const AccountPage: React.FC = () => {
         <ScrollView style={styles.container}>
             {/* User Info */}
             <View style={styles.userInfoSection}>
+                <View style={styles.logout_contaienr}>
+                    <TouchableOpacity onPress={handleLogout}><Text style={styles.logouttext}>Log Out</Text></TouchableOpacity>
+                </View>
                 <Text style={styles.userGreeting}>Bine ai venit, {userData.username}!</Text>
                 <Text style={styles.userEmail}>{userData.email}</Text>
                 {userData.is_validated && (
@@ -154,7 +179,33 @@ const AccountPage: React.FC = () => {
                 )}
             </View>
 
-            
+            {(userData.is_validated && userData.certification_mode) && (
+                // In thsi bottom view will be the stats: rep and events 
+                <View>
+                    <View style={styles.certificationInfo}>
+                        <View style={styles.stat_container}>
+                            <View style={styles.stat_element}>
+                                <MaterialIcons name="military-tech" size={80} color={theme.colors.secondary}/>
+                                <Text style={styles.stat_element_text}>Reputation</Text>
+                            </View>
+                            <View style={styles.stat_element}>
+                                <Text style={styles.stat_text}>{userData.reputation}</Text>
+                            </View>
+                        </View>
+                    </View>
+                    <View style={styles.certificationInfo}>
+                        <View style={styles.stat_container}>
+                            <View style={styles.stat_element}>
+                                <MaterialIcons name="event-available" size={80} color={theme.colors.primaryContainer}/>
+                                <Text style={styles.stat_element_text}>Events</Text>
+                            </View>
+                            <View style={styles.stat_element}>
+                                <Text style={styles.stat_text}>{userData.reputation}</Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+            )}
 
             {/* Certification Packages */}
             {/* !userData.certification_mode || !userData.is_validated */}
@@ -182,7 +233,7 @@ const AccountPage: React.FC = () => {
                                 Încarcă certificatul emis de o organizație recunoscută care atestă că ești pregătit pentru prim ajutor
                             </Text>
                             <View style={styles.photo_icon}>
-                                <MaterialIcons name="photo-camera" size={40} color="white"/>
+                                <MaterialIcons name="photo-camera" size={80} color="white"/>
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -250,6 +301,37 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.background,
         padding: 20,
     },
+    logout_contaienr:{
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        bottom: 0,
+        justifyContent: 'center',   // center vertically
+        alignItems: 'center',       // center horizontally inside itself
+        paddingRight: 10,           // optional: spacing from the right edge
+
+
+    },
+    stat_container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+        padding: 20,
+        flexDirection: 'row',        // ← put elements horizontally
+    },
+    stat_text: {
+        color: theme.colors.onBackground,
+        fontSize:30,
+    },
+    stat_element_text: {
+        color: theme.colors.onBackground,
+    },
+    stat_element: {
+        flex: 1,
+        color: theme.colors.onBackground,
+        borderRadius: 12,
+        justifyContent: 'center', // center on Y axis
+        alignItems: 'center',     // center on X axis
+    },
     photo_icon:{
         flex: 1,                 // Fill the screen
         justifyContent: 'center', // Center vertically
@@ -258,13 +340,11 @@ const styles = StyleSheet.create({
     userInfoSection: {
         marginBottom: 30,
         paddingBottom: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.outline,
     },
     userGreeting: {
         fontSize: 24,
         fontWeight: "bold",
-        color: theme.colors.outline,
+        color: theme.colors.onBackground,
         marginBottom: 5,
     },
     userEmail: {
@@ -292,13 +372,17 @@ const styles = StyleSheet.create({
     infoTitle: {
         fontSize: 22,
         fontWeight: "bold",
-        color: "#fff",
+        color: theme.colors.onBackground,
         marginBottom: 10,
     },
     infoDescription: {
         fontSize: 14,
-        color: "#fff",
+        color: theme.colors.onBackground,
         lineHeight: 20,
+    },
+    logouttext: {
+        fontSize: 14,
+        color: theme.colors.error,
     },
     packagesSection: {
         marginBottom: 30,
@@ -319,12 +403,12 @@ const styles = StyleSheet.create({
     packageTitle: {
         fontSize: 22,
         fontWeight: "bold",
-        color: "#fff",
+        color: theme.colors.onBackground,
         marginBottom: 10,
     },
     packageDescription: {
         fontSize: 14,
-        color: "#fff",
+        color: theme.colors.onBackground,
         marginBottom: 15,
         lineHeight: 20,
     },

@@ -28,6 +28,7 @@ export const TopBar: React.FC = () => {
     <Appbar.Header
       style={[styles.header, { backgroundColor: theme.colors.background }]}
     >
+      {/*
       {canGoBack() ? (
         <Appbar.BackAction
           onPress={() => {
@@ -37,13 +38,13 @@ export const TopBar: React.FC = () => {
         />
       ) : (
         <Appbar.Action icon="menu" color="transparent" />
-      )}
+      )}*/}
       <Appbar.Content title={pageName} style={{ alignItems: 'center' }} />
-      <Appbar.Action
+      {/*<Appbar.Action
         icon="account-circle"
         color={theme.colors.primary}
         onPress={() => router.push("/(tabs)/cont" as RelativePathString)}
-      />
+      />*/}
     </Appbar.Header>
   );
 };
@@ -78,6 +79,7 @@ const BottomBar: React.FC = () => {
     // { key: 'raporteaza', label: 'Raportează', icon: 'alert-circle' },
     // { key: 'settings', label: 'Setări', icon: 'settings' },
     { key: 'acasa', label: 'Acasă', icon: 'home' },
+    { key: 'cont', label: 'Cont', icon: 'person' },
   ];
 
   return (
