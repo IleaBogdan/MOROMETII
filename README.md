@@ -2,15 +2,6 @@
 
 Interventii24 is a multi-language application developed for the Polihack Winter 2025 competition.
 
-The project combines:
-
-- **TypeScript** (≈ 61.1%) – primary language for the frontend and/or tooling  
-- **C#** (≈ 31.6%) – backend services and APIs  
-- **JavaScript** (≈ 7.3%) – auxiliary scripts and utilities  
-
-> Note: This README is based on the repository metadata and language composition.  
-> Please adapt paths, commands, and descriptions to match the actual implementation.
-
 ---
 
 ## Table of Contents
