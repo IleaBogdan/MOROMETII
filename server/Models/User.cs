@@ -8,7 +8,9 @@ namespace server.Models
         public string Name { get; set; }
         public string Email { get; set; }
         public string Password { get; set; }
-        public Image_Photo Image { get; set; }        
+        public Image_Photo Image { get; set; }    
+        public int EmergencyId { get; set; }
+        // make location variable 
     }
     public class Image_Photo
     {

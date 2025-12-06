@@ -16,21 +16,26 @@ const SignInPage: React.FC = () => {
     const handleRedirectToSignUp = () => {
         router.push("/(tabs)/signup" as RelativePathString);
     };
-
     const handleLogin = async () => {
+        await AsyncStorage.clear();
         const result = await handleSignIn(setLoading, email, password);
 
-        if (result && result.data && result.data.isValid && result.response.ok) {
+        if (result && result.data && result?.data.isValid) {
             await AsyncStorage.multiSet([
-                ['username', result.data.username],
+                ['username', result.data.username || ''],
                 ['email', email.trim()],
-                ['password', password.trim()]
+                ['password', password.trim()],
+                ['isVerified', result.data.isVerified ? 'true' : 'false'],
+                ['certification_img', result.data.isImage === true ? 'true' : 'false'],
+                ['reputation', result.data.reputation ? (result.data.reputation).toString() : '0'],
+                ['events', result.data.emCount ? (result.data.emCount).toString() : '0'],
+                ['id', (result.data.id).toString() || '0'],
             ]);
             router.push("/(tabs)/acasa" as RelativePathString);
-        } else {
+        } else if (result) {
             Alert.alert(
                 "Eroare de Autentificare!",
-                "Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!"
+                `Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!${result.data.IsValid}`,
             );
         }
     }

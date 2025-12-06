@@ -1,6 +1,18 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 
-const API_BASE = process.env.API_BASE;
+export const API_BASE = "http://192.168.232.182:5024";
+
+interface LoginResponse {
+  EmCount: number;
+  Error: string | null;
+  Id: number;
+  IsValid: boolean;
+  isVerified: boolean;
+  Username: string | null;
+  isImage: boolean;
+  reputation: number | null;
+}
 
 export async function handleSignIn(
   setLoading: any,
@@ -29,10 +41,7 @@ export async function handleSignIn(
     return { data, response };
   } catch (error: any) {
     if (error.name === "AbortError") {
-      Alert.alert(
-        "Timeout",
-        "Serverul nu răspunde. Verifică:\n• IP-ul serverului\n• Firewall-ul\n• Conexiunea la rețea"
-      );
+      Alert.alert("Timeout", "Serverul nu răspunde.");
     } else {
       Alert.alert(
         "Eroare de Rețea",
@@ -50,13 +59,29 @@ export async function _handleSignUp(
   name: string,
   email: string,
   password: string,
-  confirmpassword: string,
   router: any
 ) {
+  // Validate inputs
+  if (!name.trim() || !email.trim() || !password.trim()) {
+    Alert.alert("Eroare", "Te rugăm să completezi toate câmpurile");
+    return null;
+  }
+
+  if (password.length < 6) {
+    Alert.alert("Eroare", "Parola trebuie să aibă cel puțin 6 caractere");
+    return null;
+  }
+
+  //   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  //   if (!emailRegex.test(email)) {
+  //     Alert.alert("Eroare", "Email invalid");
+  //     return null;
+  //   }
+
   setLoading(true);
   try {
     const url = `${API_BASE}/api/UserValidator/SignUp`;
-    console.log("🔵 Attempting connection make an acount:", url);
+    console.log("🔵 Attempting to create an account:", url);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -65,13 +90,35 @@ export async function _handleSignUp(
       method: "POST",
       signal: controller.signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ Name: name, Email: email, Password: password }),
+      body: JSON.stringify({
+        Name: name.trim(),
+        Email: email.trim(),
+        Password: password,
+      }),
     });
 
     clearTimeout(timeoutId);
-    const data = await response.json();
+    const data: LoginResponse = await response.json();
 
     console.log("✅ Response:", data);
+
+    if (!data.IsValid) {
+      Alert.alert("Eroare", data.Error || "Înregistrare eșuată");
+      return null;
+    }
+    if (data.IsValid && data.Id > 0) {
+      Alert.alert(
+        "Succes!",
+        "Contul a fost creat cu succes! Te poți autentifica acum.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/(tabs)/signin"),
+          },
+        ]
+      );
+    }
+
     return { data, response };
   } catch (error: any) {
     if (error.name === "AbortError") {
@@ -88,5 +135,68 @@ export async function _handleSignUp(
     return null;
   } finally {
     setLoading(false);
+  }
+}
+
+export async function checkLogin(email: string, password: string) {
+  try {
+    const encodedEmail = email.trim();
+    const encodedPassword = password.trim();
+    const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodedEmail}&Password=${encodedPassword}`;
+    console.log("🔵 Checking login credentials:", url);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.log(" Response not OK:", response.status);
+      return null;
+    }
+
+    const data: LoginResponse = await response.json();
+    console.log("✅ Login check response:", data);
+
+    if (data.IsValid) {
+      await AsyncStorage.setItem("id", data.Id.toString());
+      await AsyncStorage.setItem("username", data.Username || "");
+      await AsyncStorage.setItem("email", email);
+      await AsyncStorage.setItem("password", password);
+      await AsyncStorage.setItem("isVerified", data.isVerified.toString());
+
+      if (data.isImage) {
+        await AsyncStorage.setItem(
+          "certification_img",
+          data.isImage === true ? "true" : "false"
+        );
+      }
+      if (data.reputation !== undefined && data.reputation !== null) {
+        await AsyncStorage.setItem("reputation", data.reputation.toString());
+      }
+      if (data.EmCount !== undefined && data.EmCount !== null) {
+        await AsyncStorage.setItem("events", data.EmCount.toString());
+      }
+
+      return {
+        isValid: true,
+        exists: true,
+        ...data,
+      };
+    }
+
+    return {
+      isValid: false,
+      exists: false,
+      error: data.Error || "Invalid credentials",
+    };
+  } catch (error: any) {
+    console.error("checkLogin error:", error.message);
+    return null;
   }
 }
