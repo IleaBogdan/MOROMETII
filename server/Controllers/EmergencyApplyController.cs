@@ -54,13 +54,13 @@ namespace server.Controllers
         }
 
         // POST api/EmergencyApply/SetUserEmergency
-        // Body: { "Id": 123, "EmergencyId": 1 }
+        // Body: { "UserId": 123, "EmergencyId": 1 }
         [HttpPost]
         [Route("SetUserEmergency")]
         [ProducesResponseType(typeof(ApplierResponse), StatusCodes.Status200OK)]
-        public IActionResult SetUserEmergency([FromBody] User req)
+        public IActionResult SetUserEmergency([FromBody] SetUserEmergencyRequest req)
         {
-            if (req == null || req.Id <= 0)
+            if (req == null || req.UserId <= 0)
             {
                 return BadRequest(new ApplierResponse { Error = "Invalid request", Appliers = null, Count = 0 });
             }
@@ -68,11 +68,23 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string sql = "UPDATE Users SET EmergencyId = @EmergencyId WHERE Id = @Id";
+            // Optional: verify the emergency exists
+            string checkEmergencySql = "SELECT COUNT(*) FROM Emergency WHERE ID = @EmergencyId";
+            using (var checkCmd = new SqlCommand(checkEmergencySql, connection))
+            {
+                checkCmd.Parameters.AddWithValue("@EmergencyId", req.EmergencyId);
+                int exist = Convert.ToInt32(checkCmd.ExecuteScalar());
+                if (exist == 0)
+                {
+                    return Ok(new ApplierResponse { Error = "Emergency not found", Appliers = null, Count = 0 });
+                }
+            }
+
+            string sql = "UPDATE Users SET EmergencyId = @EmergencyId WHERE Id = @UserId";
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@EmergencyId", req.EmergencyId);
-            command.Parameters.AddWithValue("@Id", req.Id);
+            command.Parameters.AddWithValue("@UserId", req.UserId);
 
             int rowsAffected = command.ExecuteNonQuery();
 
@@ -82,6 +94,12 @@ namespace server.Controllers
             }
 
             return Ok(new ApplierResponse { Error = null, Appliers = null, Count = rowsAffected });
+        }
+
+        public class SetUserEmergencyRequest
+        {
+            public int UserId { get; set; }
+            public int EmergencyId { get; set; }
         }
     }
 }
