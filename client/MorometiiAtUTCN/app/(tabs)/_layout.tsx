@@ -78,7 +78,7 @@ const BottomBar: React.FC = () => {
     // { key: 'harta', label: 'Hartă', icon: 'map' },
     // { key: 'raporteaza', label: 'Raportează', icon: 'alert-circle' },
     // { key: 'settings', label: 'Setări', icon: 'settings' },
-    { key: 'acasa', label: 'Acasă', icon: 'home' },
+    { key: 'acasa', label: 'Urgențe', icon: 'warning' },
     { key: 'cont', label: 'Cont', icon: 'person' },
   ];
 
@@ -94,7 +94,7 @@ const BottomBar: React.FC = () => {
             style={stylesBottom.tabButton}
             onPress={() => router.push(`/(tabs)/${tab.key}` as RelativePathString)}
           >
-            <Ionicons name={tab.icon as any} size={22} color={color} />
+            <Ionicons name={tab.icon as any} size={40} color={color} />
             <Text style={[stylesBottom.tabLabel, { color }]}>{tab.label}</Text>
           </TouchableOpacity>
         );
@@ -109,15 +109,16 @@ const stylesBottom = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 6,
-    paddingBottom: 16,
+    paddingBottom: 50,
     elevation: 6,
+    height:120,
   },
   tabButton: {
     alignItems: 'center',
     flex: 1,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 14,
     marginTop: 2,
   },
 });
