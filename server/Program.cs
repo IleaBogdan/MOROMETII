@@ -5,10 +5,8 @@ using System.Net;
 using System.Net.Sockets;
 
 var builder = WebApplication.CreateBuilder(args);
-
 var ip = Dns.GetHostAddresses(Dns.GetHostName())
     .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
-
 if (ip != null)
 {
     Console.WriteLine($"Listening on {ip}:5024");
@@ -31,6 +29,7 @@ string sql_connect = null;
 sql_connect = string.Format("Server={0}\\SQLEXPRESS;Database=MOROMETII;Trusted_Connection=True;", ip);
 server.Controllers.UserValidator.set_connection(sql_connect);
 server.Controllers.Emergency.set_connection(sql_connect);
+server.Controllers.EmergencyApplyController.set_connection(sql_connect);
 server.Hubs.EmergencyHub.set_connection(sql_connect);
 server.Controllers.UserManager.set_connection(sql_connect);
 

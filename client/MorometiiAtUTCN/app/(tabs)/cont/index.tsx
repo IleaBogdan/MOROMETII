@@ -18,11 +18,11 @@ import {
 interface UserData {
     username: string;
     email: string;
-    is_validated: boolean;
-    certification_mode: string | null;
-    reputation: string;
-    events:string;
-
+    isVerified: boolean;
+    certification_img: string | null;
+    reputation: number | null;
+    events: number | null;
+    id: number;
 }
 
 const AccountPage: React.FC = () => {
@@ -36,41 +36,51 @@ const AccountPage: React.FC = () => {
 
 
     const handleLogout = async () => {
-        try {
-            await AsyncStorage.clear();
-            router.replace("/(tabs)/signup" as RelativePathString); // replace instead of push
-        } catch (error) {
-            console.error('Failed to clear AsyncStorage:', error);
-        }
-    }
+        Alert.alert(
+            "Confirmare Deconectare",
+            "Ești sigur că vrei să te deconectezi?",
+            [
+                {
+                    text: "Anulează",
+                    style: "cancel"
+                },
+                {
+                    text: "Deconectează-te",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+
+                            const keys = await AsyncStorage.getAllKeys();
+                            await AsyncStorage.multiRemove(keys);
+
+                            router.replace("/(tabs)/signin" as RelativePathString);
+                        } catch (error) {
+                            console.error('Failed to logout:', error);
+                            Alert.alert("Eroare", "Nu s-a putut efectua deconectarea. Te rugăm să încerci din nou.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     const loadUserData = async () => {
         try {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
-            const is_validated = await AsyncStorage.getItem("is_validated");
-            const certification_mode = await AsyncStorage.getItem("certification_mode");
+            const isVerified = await AsyncStorage.getItem("isVerified");
+            const certification_img = await AsyncStorage.getItem("certification_img");
             const reputation = await AsyncStorage.getItem("reputation");
             const events = await AsyncStorage.getItem("events");
-            {/*
-            
+            const id = await AsyncStorage.getItem("id");
             setUserData({
                 username: username || "",
                 email: email || "",
-                is_validated: is_validated === "true",
-                certification_mode: certification_mode || null,
-                reputation: reputation || '0',
-                events: events || '0',
-            });
-
-            */}
-            setUserData({
-                username: username || "",
-                email: email || "",
-                is_validated: is_validated === "true",
-                certification_mode: certification_mode || null,
-                reputation: reputation || '0',
-                events: events || '0',
+                isVerified: isVerified === 'true',
+                certification_img: certification_img || null,
+                reputation: reputation ? parseInt(reputation) : 0,
+                events: events ? parseInt(events) : 0,
+                id: id ? parseInt(id) : 0,
             });
         } catch (error) {
             console.error("Error loading user data:", error);
@@ -134,9 +144,9 @@ const AccountPage: React.FC = () => {
             });
 
             if (response.ok) {
-                await AsyncStorage.setItem("certification_mode", "diploma");
+                await AsyncStorage.setItem("certification_img", "diploma");
                 await AsyncStorage.setItem("is_validated", "true");
-                setUserData(prev => prev ? { ...prev, certification_mode: "diploma", is_validated: true } : null);
+                setUserData(prev => prev ? { ...prev, certification_img: "diploma", is_validated: true } : null);
                 Alert.alert("Succes!", "Diploma a fost încărcată cu succes");
                 setPhotoModalVisible(false);
             } else {
@@ -164,23 +174,30 @@ const AccountPage: React.FC = () => {
         <ScrollView style={styles.container}>
             {/* User Info */}
             <View style={styles.userInfoSection}>
-                <View style={styles.logout_contaienr}>
-                    <TouchableOpacity onPress={handleLogout}><Text style={styles.logouttext}>Log Out</Text></TouchableOpacity>
+                <View style={styles.logoutContainer}>
+                    <TouchableOpacity
+                        style={styles.logoutButton}
+                        onPress={handleLogout}
+                        activeOpacity={0.7}
+                    >
+                        <MaterialIcons name="logout" size={15} color={theme.colors.error} />
+                        <Text style={styles.logoutText}>Ieșire</Text>
+                    </TouchableOpacity>
                 </View>
                 <Text style={styles.userGreeting}>Bine ai venit, {userData.username}!</Text>
                 <Text style={styles.userEmail}>{userData.email}</Text>
-                {userData.is_validated && (
+                {userData.isVerified && (
                     <Text style={styles.certifiedBadge}>✓ Certificat</Text>
                 )}
             </View>
 
-            {(userData.is_validated && userData.certification_mode) && (
-                // In thsi bottom view will be the stats: rep and events 
+            {(userData.isVerified && userData.certification_img) && (
+
                 <View>
                     <View style={styles.certificationInfo}>
                         <View style={styles.stat_container}>
                             <View style={styles.stat_element}>
-                                <MaterialIcons name="military-tech" size={80} color={theme.colors.secondary}/>
+                                <MaterialIcons name="military-tech" size={80} color={theme.colors.secondary} />
                                 <Text style={styles.stat_element_text}>Reputation</Text>
                             </View>
                             <View style={styles.stat_element}>
@@ -191,7 +208,7 @@ const AccountPage: React.FC = () => {
                     <View style={styles.certificationInfo}>
                         <View style={styles.stat_container}>
                             <View style={styles.stat_element}>
-                                <MaterialIcons name="event-available" size={80} color={theme.colors.primaryContainer}/>
+                                <MaterialIcons name="event-available" size={80} color={theme.colors.primaryContainer} />
                                 <Text style={styles.stat_element_text}>Events</Text>
                             </View>
                             <View style={styles.stat_element}>
@@ -201,12 +218,8 @@ const AccountPage: React.FC = () => {
                     </View>
                 </View>
             )}
-
-            {/* Certification Packages */}
-            {/* !userData.certification_mode || !userData.is_validated */}
-            {(!userData.certification_mode) && (
+            {(!userData.isVerified) && (
                 <View style={styles.packagesSection}>
-                    {/* Certification Info */}
                     <View style={styles.certificationInfo}>
                         <Text style={styles.infoTitle}>De ce este necesară certificarea?</Text>
                         <Text style={styles.infoDescription}>
@@ -215,10 +228,8 @@ const AccountPage: React.FC = () => {
                         <Text style={styles.infoDescription}>
                             Certificatul tău garantează că ești pregătit pentru situații de urgență și că poți ajuta în mod eficient și sigur.
                         </Text>
-                    
-                        <Text style={styles.sectionTitle}>Prezintă-ți Certificatul:</Text>
 
-                        {/* Diploma Package */}
+                        <Text style={styles.sectionTitle}>Prezintă-ți Certificatul:</Text>
                         <TouchableOpacity
                             style={styles.packageCard}
                             onPress={() => handleSelectCertification("diploma")}
@@ -228,13 +239,13 @@ const AccountPage: React.FC = () => {
                                 Încarcă certificatul emis de o organizație recunoscută care atestă că ești pregătit pentru prim ajutor
                             </Text>
                             <View style={styles.photo_icon}>
-                                <MaterialIcons name="photo-camera" size={80} color="white"/>
+                                <MaterialIcons name="photo-camera" size={80} color="white" />
                             </View>
                         </TouchableOpacity>
                     </View>
                 </View>
             )}
-            {(!userData.is_validated && userData.certification_mode) && (
+            {(!userData.isVerified && userData.certification_img) && (
                 <View style={styles.packagesSection}>
                     {/* Certification Info */}
                     <View style={styles.verificareInfo}>
@@ -245,7 +256,7 @@ const AccountPage: React.FC = () => {
                         <Text style={styles.infoDescription}>
                             Certificatul tău garantează că ești pregătit pentru situații de urgență și că poți ajuta în mod eficient și sigur.
                         </Text>
-                    
+
                         <Text style={styles.sectionTitle}>Ne vedem în curând...</Text>
                     </View>
                 </View>
@@ -256,7 +267,7 @@ const AccountPage: React.FC = () => {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Încarcă Diploma</Text>
-                        
+
                         {uploadingPhoto ? (
                             <ActivityIndicator size="large" color={theme.colors.primary} />
                         ) : (
@@ -296,16 +307,28 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.background,
         padding: 20,
     },
-    logout_contaienr:{
+    logoutContainer: {
         position: 'absolute',
-        right: 0,
-        top: 0,
-        bottom: 0,
-        justifyContent: 'center',   // center vertically
-        alignItems: 'center',       // center horizontally inside itself
-        paddingRight: 10,           // optional: spacing from the right edge
+        right: 10,
+        top: 10,
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.errorContainer || 'rgba(255, 0, 0, 0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        gap: 6,
 
-
+        minWidth: 44,
+        minHeight: 44,
+        justifyContent: 'center',
+    },
+    logoutText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: theme.colors.error,
     },
     stat_container: {
         flex: 1,
@@ -315,7 +338,7 @@ const styles = StyleSheet.create({
     },
     stat_text: {
         color: theme.colors.onBackground,
-        fontSize:30,
+        fontSize: 30,
     },
     stat_element_text: {
         color: theme.colors.onBackground,
@@ -327,7 +350,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center', // center on Y axis
         alignItems: 'center',     // center on X axis
     },
-    photo_icon:{
+    photo_icon: {
         flex: 1,                 // Fill the screen
         justifyContent: 'center', // Center vertically
         alignItems: 'center',     // Center horizontally (X-axis)
@@ -344,12 +367,12 @@ const styles = StyleSheet.create({
     },
     userEmail: {
         fontSize: 14,
-        color: theme.colors.outline,
+        color: theme.colors.primary,
         marginBottom: 10,
     },
     certifiedBadge: {
         fontSize: 14,
-        color: "#4CAF50",
+        color: theme.colors.primary,
         fontWeight: "bold",
     },
     certificationInfo: {
@@ -375,10 +398,6 @@ const styles = StyleSheet.create({
         color: theme.colors.onBackground,
         lineHeight: 20,
     },
-    logouttext: {
-        fontSize: 14,
-        color: theme.colors.error,
-    },
     packagesSection: {
         marginBottom: 30,
     },
@@ -387,7 +406,7 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         color: theme.colors.inverseSurface,
         marginBottom: 15,
-        marginTop:15,
+        marginTop: 15,
     },
     packageCard: {
         backgroundColor: theme.colors.secondary,
