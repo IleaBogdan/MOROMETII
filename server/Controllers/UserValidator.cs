@@ -31,6 +31,8 @@ namespace server.Controllers
             public bool IsValid { get; set; }
             public int Id { get; set; }
             public string Username { get; set; }
+            public bool isVerified { get; set; }
+            public int EmCount { get; set; }
         }
 
         [HttpGet]
@@ -46,8 +48,14 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            // Select only the columns we need: Id and Name (which is the username)
-            string sql = "SELECT Id, Name FROM Users WHERE Email=@Email AND Password=@Password";
+            // Updated SQL to include isVerified and calculate email count
+            string sql = @"SELECT 
+                            u.Id, 
+                            u.Name, 
+                            u.isVerified,
+                            (SELECT COUNT(*) FROM Users WHERE Email = @Email) as EmCount
+                         FROM Users u 
+                         WHERE u.Email=@Email AND u.Password=@Password";
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@Email", Email);
@@ -59,27 +67,47 @@ namespace server.Controllers
             {
                 reader.Read(); // Move to the first row
 
-                // Get the Id and Name (username) from the database
+                // Get the data from the database
                 int userId = reader.GetInt32(reader.GetOrdinal("Id"));
                 string username = reader.GetString(reader.GetOrdinal("Name"));
+
+                // Handle isVerified - it might be nullable in the database
+                bool isVerified = false;
+                int isVerifiedOrdinal = reader.GetOrdinal("isVerified");
+                if (!reader.IsDBNull(isVerifiedOrdinal))
+                {
+                    isVerified = reader.GetBoolean(isVerifiedOrdinal);
+                }
+
+                // Get the email count
+                int emCount = reader.GetInt32(reader.GetOrdinal("EmCount"));
 
                 return Ok(new LoginResponse
                 {
                     Error = null,
                     IsValid = true,
                     Id = userId,
-                    Username = username // This is the "Name" column from the database
+                    Username = username,
+                    isVerified = isVerified,
+                    EmCount = emCount
                 });
             }
             else
             {
-                // No user found - invalid credentials
+                // Check if email exists but password is wrong
+                string emailCheckSql = "SELECT COUNT(*) FROM Users WHERE Email = @Email";
+                using var emailCheckCommand = new SqlCommand(emailCheckSql, connection);
+                emailCheckCommand.Parameters.AddWithValue("@Email", Email);
+                int emailExists = (int)emailCheckCommand.ExecuteScalar();
+
                 return Ok(new LoginResponse
                 {
                     Error = "Wrong Credentials",
                     IsValid = false,
                     Id = 0,
-                    Username = null
+                    Username = null,
+                    isVerified = false,
+                    EmCount = emailExists
                 });
             }
         }
@@ -92,7 +120,8 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string checkSql = "SELECT COUNT(*) FROM Users WHERE Email = @Email";
+            // First check if email exists
+            string checkSql = "SELECT COUNT(*) as EmailCount FROM Users WHERE Email = @Email";
             using var checkCommand = new SqlCommand(checkSql, connection);
             checkCommand.Parameters.AddWithValue("@Email", req.Email);
 
@@ -105,13 +134,16 @@ namespace server.Controllers
                     Error = "Email already registered",
                     IsValid = false,
                     Id = 0,
-                    Username = null
+                    Username = null,
+                    isVerified = false,
+                    EmCount = emailCount
                 });
             }
 
-            string sql = @"INSERT INTO Users (Name, Password, Email) 
-                          OUTPUT INSERTED.Id, INSERTED.Name
-                          VALUES (@Name, @Password, @Email);";
+            // Insert new user with isVerified defaulting to false
+            string sql = @"INSERT INTO Users (Name, Password, Email, isVerified) 
+                          OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.isVerified
+                          VALUES (@Name, @Password, @Email, 0);"; // Default isVerified to false
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@Name", req.Name);
@@ -126,12 +158,22 @@ namespace server.Controllers
                 int newUserId = reader.GetInt32(reader.GetOrdinal("Id"));
                 string newUsername = reader.GetString(reader.GetOrdinal("Name"));
 
+                // Handle isVerified - it might be nullable
+                bool isVerified = false;
+                int isVerifiedOrdinal = reader.GetOrdinal("isVerified");
+                if (!reader.IsDBNull(isVerifiedOrdinal))
+                {
+                    isVerified = reader.GetBoolean(isVerifiedOrdinal);
+                }
+
                 return Ok(new LoginResponse
                 {
                     Error = null,
                     IsValid = true,
                     Id = newUserId,
-                    Username = newUsername
+                    Username = newUsername,
+                    isVerified = isVerified,
+                    EmCount = 1 // Since we just created a new user with this email
                 });
             }
             else
@@ -141,8 +183,70 @@ namespace server.Controllers
                 {
                     Error = null,
                     IsValid = true,
-                    Id = 0, // Consider retrieving the last inserted ID if needed
-                    Username = req.Name
+                    Id = 0,
+                    Username = req.Name,
+                    isVerified = false, // Default to false for new signups
+                    EmCount = 1
+                });
+            }
+        }
+
+        // Optional: Add a method to update verification status
+        [HttpPost]
+        [Route("VerifyUser")]
+        [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+        public IActionResult VerifyUser(int userId)
+        {
+            using var connection = new SqlConnection(__connectionString);
+            connection.Open();
+
+            string sql = @"UPDATE Users SET isVerified = 1 
+                          OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.isVerified
+                          WHERE Id = @UserId";
+
+            using var command = new SqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@UserId", userId);
+
+            using var reader = command.ExecuteReader();
+
+            if (reader.HasRows)
+            {
+                reader.Read();
+                int updatedUserId = reader.GetInt32(reader.GetOrdinal("Id"));
+                string username = reader.GetString(reader.GetOrdinal("Name"));
+                bool isVerified = reader.GetBoolean(reader.GetOrdinal("isVerified"));
+
+                // Get email count for this user's email
+                string emailSql = "SELECT Email FROM Users WHERE Id = @UserId";
+                using var emailCommand = new SqlCommand(emailSql, connection);
+                emailCommand.Parameters.AddWithValue("@UserId", userId);
+                string userEmail = emailCommand.ExecuteScalar()?.ToString();
+
+                string countSql = "SELECT COUNT(*) FROM Users WHERE Email = @Email";
+                using var countCommand = new SqlCommand(countSql, connection);
+                countCommand.Parameters.AddWithValue("@Email", userEmail);
+                int emCount = (int)countCommand.ExecuteScalar();
+
+                return Ok(new LoginResponse
+                {
+                    Error = null,
+                    IsValid = true,
+                    Id = updatedUserId,
+                    Username = username,
+                    isVerified = isVerified,
+                    EmCount = emCount
+                });
+            }
+            else
+            {
+                return Ok(new LoginResponse
+                {
+                    Error = "User not found",
+                    IsValid = false,
+                    Id = 0,
+                    Username = null,
+                    isVerified = false,
+                    EmCount = 0
                 });
             }
         }
