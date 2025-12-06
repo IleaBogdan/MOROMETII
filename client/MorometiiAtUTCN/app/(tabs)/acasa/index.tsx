@@ -4,6 +4,7 @@ import { View, Text, Alert, StyleSheet, TouchableOpacity, Modal, ActivityIndicat
 import { theme } from '@/theme/theme'
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Button } from "react-native-paper";
+import { API_BASE } from "@/api/apiCalls";
 // Platform-safe map imports
 let MapView: any = null;
 let Marker: any = null;
@@ -52,21 +53,31 @@ interface Urgenta {
     count: number; // number of people that applied already 
     id: number;
 }
+interface databaseUrgency {
+    name: string;
+    id: number;
+    description: string;
+    level: number;
+    location_X: number;
+    location_Y: number;
+}
+
 
 const HomePage: React.FC = () => {
     const [userData, setUserData] = useState<UserData | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [urgencies, setUrgencies] = useState<Urgenta[]>([]);
+    const [urgencies, setUrgencies] = useState<databaseUrgency[]>([]);
     const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const [selectedUrgency, setSelectedUrgency] = useState<Urgenta | null>(null);
     const [detailsVisible, setDetailsVisible] = useState(false);
 
     useEffect(() => {
         loadUserData();
+        handleRefreshUrgencies();
     }, []);
 
     const parseCoord = (value: string) => {
-        // Accept either: "12.34 N" or plain decimal string "12.34"
+
         if (!value) return 0;
         const parts = value.trim().split(" ");
         if (parts.length === 1) {
@@ -82,20 +93,26 @@ const HomePage: React.FC = () => {
         openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))
     }
     const handleRefreshUrgencies = async () => {
-        const API_BASE = "http://192.168.232.182:5024"
+        const url = API_BASE;
         setIsRefreshing(true);
-        // setUrgencies([]);
+        try {
+            const response = await fetch(`${url}/api/Emergency/FindEmergency`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
 
-        // const response = await fetch("",
-        //     {
-        //         method: 'GET',
-        //         headers: {
-        //             'Content-Type': 'application/json'
-        //         }
-        //     }
-        // )
-        // setIsRefreshing(false);
-    }
+            if (response.ok) {
+                console.log("Urgencies refreshed:");
+                const listOfUrgencies: databaseUrgency[] = data.ems;
+                setUrgencies(listOfUrgencies);
+            }
+        } catch (error) {
+            console.error("Error refreshing urgencies:", error);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
     const loadUserData = async () => {
         try {
             const username = await AsyncStorage.getItem("username");
@@ -120,14 +137,14 @@ const HomePage: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        const sample: Urgenta[] = [
-            { name: "Accident rutier", description: "Derived from a scrambled Latin text (Cicero's it's gibberish but mimics real language's character/word distribution, preventing distraction from design elements like typography", location: ["46.7712", "23.6236"], score: 8, count: 3, id: 1 },
-            { name: "Infarct", description: "Persoană inconștientă", location: ["46.7667", "23.5833"], score: 9, count: 1, id: 2 },
-            { name: "Cădere", description: "Persoană căzută pe stradă", location: ["46.7725", "23.6000"], score: 6, count: 0, id: 3 },
-        ];
-        setUrgencies(sample);
-    }, []);
+    // useEffect(() => {
+    //     const sample: Urgenta[] = [
+    //         { name: "Accident rutier", description: "Derived from a scrambled Latin text (Cicero's it's gibberish but mimics real language's character/word distribution, preventing distraction from design elements like typography", location: ["46.7712", "23.6236"], score: 8, count: 3, id: 1 },
+    //         { name: "Infarct", description: "Persoană inconștientă", location: ["46.7667", "23.5833"], score: 9, count: 1, id: 2 },
+    //         { name: "Cădere", description: "Persoană căzută pe stradă", location: ["46.7725", "23.6000"], score: 6, count: 0, id: 3 },
+    //     ];
+    //     setUrgencies(sample);
+    // }, []);
 
 
     useEffect(() => {
@@ -187,18 +204,14 @@ const HomePage: React.FC = () => {
         });
     };
 
-    // Filter urgencies: only show those within 1km of user location
-    const closeUrgencies = userLocation
-        ? urgencies.filter(u => {
-            const lat = parseCoord(u.location[0]);
-            const lon = parseCoord(u.location[1]);
-            const dist = distanceKm(userLocation.latitude, userLocation.longitude, lat, lon);
-            return dist <= 2;
-        })
-        : urgencies;
-
-    const makeLeafletHtml = (markers: Urgenta[]) => {
-        const points = markers.map(m => ({ lat: parseCoord(m.location[0]), lon: parseCoord(m.location[1]), name: m.name, desc: m.description }));
+    const closeUrgencies = urgencies
+    const makeLeafletHtml = (markers: databaseUrgency[]) => {
+        const points = markers.map(m => ({
+            lat: m.location_X,
+            lon: m.location_Y,
+            name: m.name,
+            desc: m.description
+        }));
         const ptsJson = JSON.stringify(points);
         return `<!DOCTYPE html>
 <html>
@@ -222,7 +235,6 @@ const HomePage: React.FC = () => {
     </body>
 </html>`;
     };
-
     return (
         <View style={styles.container}>
             {!userData || (!userData.is_validated) && (
@@ -254,8 +266,8 @@ const HomePage: React.FC = () => {
                                 <MapView
                                     style={styles.map}
                                     initialRegion={{
-                                        latitude: parseCoord(closeUrgencies[0].location[0]),
-                                        longitude: parseCoord(closeUrgencies[0].location[1]),
+                                        latitude: closeUrgencies[0].location_X,
+                                        longitude: closeUrgencies[0].location_Y,
                                         latitudeDelta: 0.05,
                                         longitudeDelta: 0.05,
                                     }}
@@ -265,8 +277,8 @@ const HomePage: React.FC = () => {
                                             <Marker
                                                 key={idx}
                                                 coordinate={{
-                                                    latitude: parseCoord(u.location[0]),
-                                                    longitude: parseCoord(u.location[1]),
+                                                    latitude: u.location_X,
+                                                    longitude: u.location_Y,
                                                 }}
                                                 title={u.name}
                                                 description={u.description}
@@ -287,7 +299,7 @@ const HomePage: React.FC = () => {
                                 </View>
                             )
                         ) : (
-                            <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs. (în raza de 1 km)</Text>
+                            <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs. (în raza de 2 km)</Text>
                         )}
                     </View>
                     <View style={{ marginBottom: 10 }}>
@@ -303,11 +315,25 @@ const HomePage: React.FC = () => {
                         ) : (
                             <View style={styles.urgencyList}>
                                 {closeUrgencies.map((u, i) => {
-                                    const lat = parseCoord(u.location[0]);
-                                    const lon = parseCoord(u.location[1]);
-                                    const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, lat, lon) : null;
+                                    const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y) : null;
                                     return (
-                                        <TouchableOpacity key={i} style={styles.urgencyCard} onPress={() => { setSelectedUrgency(u); setDetailsVisible(true); }}>
+                                        <TouchableOpacity
+                                            key={i}
+                                            style={styles.urgencyCard}
+                                            onPress={() => {
+                                                // Convert to Urgenta format for the modal
+                                                const urgentaFormat: Urgenta = {
+                                                    name: u.name,
+                                                    description: u.description,
+                                                    location: [u.location_X.toString(), u.location_Y.toString()],
+                                                    score: u.level,
+                                                    count: 0, // Backend doesn't provide this
+                                                    id: u.id
+                                                };
+                                                setSelectedUrgency(urgentaFormat);
+                                                setDetailsVisible(true);
+                                            }}
+                                        >
                                             <View>
                                                 <Text style={styles.detailText}>{u.name}</Text>
                                             </View>
@@ -315,20 +341,16 @@ const HomePage: React.FC = () => {
                                                 <View style={styles.stat_container_Summary}>
                                                     <View style={styles.stat_element_Sumarry}>
                                                         <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
-                                                        <Text style={styles.stat_element_text_Sumarry}>{u.score}/10</Text>
+                                                        <Text style={styles.stat_element_text_Sumarry}>{u.level}/10</Text>
                                                     </View>
-
                                                 </View>
-
                                                 <View style={styles.stat_container_Summary}>
                                                     <View style={styles.stat_element_Sumarry}>
                                                         <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
                                                         <Text style={styles.stat_element_text_Sumarry}>{dist != null ? `${dist.toFixed(1)} km` : '—'}</Text>
                                                     </View>
                                                 </View>
-
-
-                                                <Text style={styles.urgencyMeta}>Aplicanți: {u.count}</Text>
+                                                <Text style={styles.urgencyMeta}>Aplicanți: 0</Text>
                                             </View>
                                         </TouchableOpacity>
                                     );
@@ -387,7 +409,16 @@ const HomePage: React.FC = () => {
                                                 ) : hasWebView && WebView ? (
                                                     <WebView
                                                         originWhitelist={["*"]}
-                                                        source={{ html: makeLeafletHtml([selectedUrgency]) }}
+                                                        source={{
+                                                            html: makeLeafletHtml([{
+                                                                name: selectedUrgency.name,
+                                                                id: selectedUrgency.id,
+                                                                description: selectedUrgency.description,
+                                                                level: selectedUrgency.score,
+                                                                location_X: parseCoord(selectedUrgency.location[0]),
+                                                                location_Y: parseCoord(selectedUrgency.location[1]),
+                                                            }])
+                                                        }}
                                                         style={styles.map}
                                                     />
                                                 ) : (

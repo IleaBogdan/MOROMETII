@@ -77,7 +77,6 @@ const AccountPage: React.FC = () => {
     };
     const loadUserData = async () => {
         try {
-            const API_BASE = "http://192.168.232.182:5024";
             const email = await AsyncStorage.getItem("email");
             const password = await AsyncStorage.getItem("password");
 
@@ -224,7 +223,7 @@ const AccountPage: React.FC = () => {
             } as any);
             formData.append("UserId", String(userId));
 
-            const response = await fetch(API_BASE+"/api/UserManager/UploadCertificate", {
+            const response = await fetch(API_BASE + "/api/UserManager/UploadCertificate", {
                 method: "POST",
                 body: formData,
                 // Don't set Content-Type; let fetch add the multipart boundary
