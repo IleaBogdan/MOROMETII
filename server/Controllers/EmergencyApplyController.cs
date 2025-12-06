@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
+using static server.Controllers.UserValidator;
 
 namespace server.Controllers
 {
@@ -27,18 +28,29 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string sql = @"
-                UPDATE Users
-                SET Reputation = ISNULL(Reputation, 0) + @Level,
-                    EmergenciesCompleted = ISNULL(EmergenciesCompleted, 0) + 1
-                WHERE EmergencyId = @EmergencyId";
+            string sql = "SELECT COUNT(*) FROM Users WHERE EmergencyId = @EmergencyId";
 
             using var command = new SqlCommand(sql, connection);
-            command.Parameters.AddWithValue("@Level", req.Level);
             command.Parameters.AddWithValue("@EmergencyId", req.Id);
 
-            int rowsAffected = command.ExecuteNonQuery();
-            return Ok(new ApplierResponse { Error = null, Count = rowsAffected });
+            int applierCount = (int)command.ExecuteScalar();
+
+            if (applierCount == 0)
+            {
+                return Ok(new ApplierResponse
+                {
+                    Error = "There are no appliers to this emergency",
+                    Count = 0
+                });
+            }
+            else
+            {
+                return Ok(new ApplierResponse
+                {
+                    Error = null,
+                    Count = applierCount
+                });
+            }
         }
 
         // POST api/EmergencyApply/SetUserEmergency

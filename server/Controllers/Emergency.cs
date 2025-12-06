@@ -93,12 +93,24 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string sql = "DELETE FROM Emergency WHERE ID = @Id";
+            string sql = @"
+                UPDATE Users
+                SET Reputation = ISNULL(Reputation, 0) + @Level,
+                    EmergenciesCompleted = ISNULL(EmergenciesCompleted, 0) + 1
+                WHERE EmergencyId = @EmergencyId";
 
-            using var command = new SqlCommand(sql, connection);
-            command.Parameters.AddWithValue("@Id", req.Id);
+            using var commandUpdate = new SqlCommand(sql, connection);
+            commandUpdate.Parameters.AddWithValue("@Level", req.Level);
+            commandUpdate.Parameters.AddWithValue("@EmergencyId", req.Id);
 
-            int rowsAffected = command.ExecuteNonQuery();
+            int rowsAffected = commandUpdate.ExecuteNonQuery();
+
+            sql = "DELETE FROM Emergency WHERE ID = @Id";
+
+            using var commandDelete = new SqlCommand(sql, connection);
+            commandDelete.Parameters.AddWithValue("@Id", req.Id);
+
+            rowsAffected = commandDelete.ExecuteNonQuery();
 
             if (rowsAffected == 0)
             {
