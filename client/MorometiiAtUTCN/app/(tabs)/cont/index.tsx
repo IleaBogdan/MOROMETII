@@ -1,3 +1,4 @@
+import { API_BASE } from "@/api/apiCalls";
 import { theme } from "@/theme/theme";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -122,35 +123,62 @@ const AccountPage: React.FC = () => {
     };
 
     const uploadDiplomaPhoto = async (photoUri: string) => {
-        if (!userData) return;
-
         setUploadingPhoto(true);
         try {
-            const formData = new FormData();
-            formData.append("file", {
-                uri: photoUri,
-                type: "image/jpeg",
-                name: `diploma_${userData.username}.jpg`,
-            } as any);
-            formData.append("username", userData.username);
-            formData.append("email", userData.email);
+            // Ensure we have a user id — prefer AsyncStorage (fresh) then fallback to loaded userData
+            const idFromStorage = await AsyncStorage.getItem("id");
+            const userId = idFromStorage ? parseInt(idFromStorage, 10) : userData?.id;
 
-            const response = await fetch("https://api.example.com/upload-diploma", {
+            if (!userId || userId <= 0) {
+                Alert.alert("Eroare", "User ID invalid sau inexistent");
+                return;
+            }
+
+            const formData = new FormData();
+
+            // Derive a filename and mime type from the URI
+            const uriParts = photoUri.split("/");
+            const fileName = uriParts[uriParts.length - 1] || `diploma_${userData?.username || userId}.jpg`;
+            const extMatch = /\.([a-zA-Z0-9]+)$/.exec(fileName);
+            let mimeType = "image/jpeg";
+            if (extMatch) {
+                const ext = extMatch[1].toLowerCase();
+                if (ext === "png") mimeType = "image/png";
+                else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+                else if (ext === "gif") mimeType = "image/gif";
+            }
+
+            // The server expects 'CertificateFile' and 'UserId' in the multipart form
+            formData.append("CertificateFile", {
+                uri: photoUri,
+                name: fileName,
+                type: mimeType,
+            } as any);
+            formData.append("UserId", String(userId));
+
+            const response = await fetch(API_BASE+"/api/UserManager/UploadCertificate", {
                 method: "POST",
                 body: formData,
+                // Don't set Content-Type; let fetch add the multipart boundary
                 headers: {
-                    "Content-Type": "multipart/form-data",
+                    Accept: "application/json",
                 },
             });
 
+            // Try to parse response JSON if present
+            const resJson = await response.json().catch(() => null);
+
             if (response.ok) {
-                await AsyncStorage.setItem("certification_img", "diploma");
-                await AsyncStorage.setItem("is_validated", "true");
-                setUserData(prev => prev ? { ...prev, certification_img: "diploma", is_validated: true } : null);
-                Alert.alert("Succes!", "Diploma a fost încărcată cu succes");
+                // Store that the user uploaded a certificate and mark as verified/pending
+                await AsyncStorage.setItem("certification_img", fileName);
+                await AsyncStorage.setItem("isVerified", "true");
+                setUserData(prev => prev ? { ...prev, certification_img: fileName, isVerified: true } : prev);
+
+                Alert.alert("Succes!", (resJson && resJson.message) ? resJson.message : "Diploma a fost încărcată cu succes");
                 setPhotoModalVisible(false);
             } else {
-                Alert.alert("Eroare", "Nu s-a putut încărca diploma");
+                const message = (resJson && resJson.message) ? resJson.message : "Nu s-a putut încărca diploma";
+                Alert.alert("Eroare", message);
             }
         } catch (error) {
             Alert.alert("Eroare", "Eroare la încărcarea diplomei");
