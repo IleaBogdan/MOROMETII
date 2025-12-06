@@ -30,6 +30,7 @@ namespace server.Controllers
         {
             public string Error { get; set; }
             public bool IsValid { get; set; }
+            public int Id { get; set; }
         }
 
         [HttpGet]
