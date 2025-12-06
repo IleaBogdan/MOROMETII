@@ -2,6 +2,21 @@ import React, { useState, useEffect } from "react";
 import { View, Text, Alert, StyleSheet } from "react-native";
 import { theme } from '@/theme/theme'
 import AsyncStorage from "@react-native-async-storage/async-storage";
+// react-native-maps may not be available in the running native build (Expo Go vs custom dev client).
+// Try to require it dynamically and fall back gracefully if the native module is missing.
+let MapView: any = null;
+let Marker: any = null;
+let hasMapsModule = true;
+try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const maps = require("react-native-maps");
+    MapView = maps.default ?? maps.MapView ?? maps;
+    Marker = maps.Marker ?? (maps.default && maps.default.Marker) ?? null;
+} catch (err) {
+    hasMapsModule = false;
+    console.warn("react-native-maps native module not found, map will be unavailable.", err);
+}
+
 
 interface UserData {
     username: string;
@@ -13,12 +28,35 @@ interface UserData {
 
 }
 
+interface Urgenta {
+    name: string;               // yes
+    description: string;        // optional
+    location: [string,string]; // latx and laty
+    score: number; // how urgent is this 
+    count:number; // number of people that applied already 
+}
+
 const HomePage: React.FC = () => {
     const [userData, setUserData] = useState<UserData | null>(null);
 
     useEffect(() => {
         loadUserData();
     }, []);
+
+    const parseCoord = (value: string) => {
+        // Accept either: "12.34 N" or plain decimal string "12.34"
+        if (!value) return 0;
+        const parts = value.trim().split(" ");
+        if (parts.length === 1) {
+            return parseFloat(parts[0]);
+        }
+        const [num, dir] = parts;
+        let n = parseFloat(num);
+        if (dir === "S" || dir === "W") n = -n;
+        return n;
+    };
+
+    const [urgencies, setUrgencies] = useState<Urgenta[]>([]);
 
     const loadUserData = async () => {
         try {
@@ -54,6 +92,16 @@ const HomePage: React.FC = () => {
         }
     };
 
+    // Example/sample urgencies - replace with API fetch as needed
+    useEffect(() => {
+        const sample: Urgenta[] = [
+            { name: "Accident rutier", description: "Accident cu victime", location: ["46.7712", "23.6236"], score: 8, count: 3 },
+            { name: "Infarct", description: "Persoană inconștientă", location: ["46.7667", "23.5833"], score: 9, count: 1 },
+            { name: "Cădere", description: "Persoană căzută pe stradă", location: ["46.7725", "23.6000"], score: 6, count: 0 },
+        ];
+        setUrgencies(sample);
+    }, []);
+
     return (
         <View style={styles.container}>
             {/* Show this section if the user is not yet verified */}
@@ -69,10 +117,65 @@ const HomePage: React.FC = () => {
                 </View>
             )}
             {userData != null && (userData.is_validated) && (
-                <View style={styles.container}>
-                    <Text style={styles.bottom_text}>
-                        This is where all the emergencies will be displayed once the API is a thing :)
-                    </Text>
+                <View style={styles.holdsContainer}>
+                    {/* stats row with two side-by-side stat elements */}
+                    <View style={styles.stat_container}>
+                        <View style={styles.stat_element}>
+                            <Text style={styles.stat_value}>{userData.reputation || '0'}</Text>
+                            <Text style={styles.stat_title}>Reputație</Text>
+                        </View>
+                        <View style={styles.stat_element}>
+                            <Text style={styles.stat_value}>{userData.events || '0'}</Text>
+                            <Text style={styles.stat_title}>Evenimente</Text>
+                        </View>
+                    </View>
+
+                    {/* Map + list of urgencies */}
+                    <View style={styles.mapWrapper}>
+                        {urgencies.length > 0 ? (
+                            hasMapsModule && MapView ? (
+                                <MapView
+                                    style={styles.map}
+                                    initialRegion={{
+                                        latitude: parseCoord(urgencies[0].location[0]),
+                                        longitude: parseCoord(urgencies[0].location[1]),
+                                        latitudeDelta: 0.05,
+                                        longitudeDelta: 0.05,
+                                    }}
+                                >
+                                    {urgencies.map((u, idx) => (
+                                        Marker ? (
+                                            <Marker
+                                                key={idx}
+                                                coordinate={{
+                                                    latitude: parseCoord(u.location[0]),
+                                                    longitude: parseCoord(u.location[1]),
+                                                }}
+                                                title={u.name}
+                                                description={u.description}
+                                            />
+                                        ) : null
+                                    ))}
+                                </MapView>
+                            ) : (
+                                <View style={styles.mapUnavailable}>
+                                    <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune. Rebuild aplicația cu `react-native-maps` sau folosește un Dev Client/EAS build.</Text>
+                                </View>
+                            )
+                        ) : (
+                            <Text style={styles.infoDescription}>Nu există urgențe de afișat</Text>
+                        )}
+                    </View>
+
+                    {/* simple list below map */}
+                    <View style={styles.urgencyList}>
+                        {urgencies.map((u, i) => (
+                            <View key={i} style={styles.urgencyRow}>
+                                <Text style={styles.urgencyName}>{u.name}</Text>
+                                <Text style={styles.urgencyMeta}>Scor: {u.score} • {u.count} aplicanți</Text>
+                            </View>
+                        ))}
+                    </View>
                 </View>
             )}
         </View>
@@ -152,6 +255,67 @@ const styles = StyleSheet.create({
         color: theme.colors.secondary,
         fontWeight: "bold",
         marginLeft: 5,
+    },
+    holdsContainer: {
+        flex: 1,
+    },
+    stat_container: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginBottom: 12,
+    },
+    stat_element: {
+        flex: 1,
+        backgroundColor: theme.colors.backdrop,
+        padding: 12,
+        borderRadius: 10,
+        marginHorizontal: 6,
+        alignItems: "center",
+    },
+    stat_value: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: theme.colors.onBackground,
+    },
+    stat_title: {
+        fontSize: 12,
+        color: theme.colors.onBackground,
+        marginTop: 4,
+    },
+    mapWrapper: {
+        height: 300,
+        borderRadius: 12,
+        overflow: "hidden",
+        marginBottom: 12,
+    },
+    map: {
+        width: "100%",
+        height: "100%",
+    },
+    urgencyList: {
+        marginTop: 8,
+    },
+    urgencyRow: {
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.outline,
+    },
+    urgencyName: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: theme.colors.outline,
+    },
+    urgencyMeta: {
+        fontSize: 12,
+        color: theme.colors.onBackground,
+    },
+    mapUnavailable: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 16,
+        backgroundColor: theme.colors.backdrop,
+        borderRadius: 12,
     },
 });
 
