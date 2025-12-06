@@ -1,33 +1,37 @@
 import React, { useState, useEffect } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
-import { View, Text, Alert, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Linking, Platform, ScrollView } from "react-native";
+import { View, Text, Alert, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Linking, ScrollView, RefreshControl, Platform } from "react-native";
 import { theme } from '@/theme/theme'
 import AsyncStorage from "@react-native-async-storage/async-storage";
-// react-native-maps may not be available in the running native build (Expo Go vs custom dev client).
-// Try to require it dynamically and fall back gracefully if the native module is missing.
+import { Button } from "react-native-paper";
+// Platform-safe map imports
 let MapView: any = null;
 let Marker: any = null;
-let hasMapsModule = true;
-try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const maps = require("react-native-maps");
-    MapView = maps.default ?? maps.MapView ?? maps;
-    Marker = maps.Marker ?? (maps.default && maps.default.Marker) ?? null;
-} catch (err) {
-    hasMapsModule = false;
-    console.warn("react-native-maps native module not found, map will be unavailable.", err);
-}
-// Try to require WebView for a JS-based map fallback (Leaflet in WebView)
-let WebView: any = null;
-let hasWebView = true;
-try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const wv = require('react-native-webview');
-    WebView = wv.WebView ?? wv.default ?? wv;
-} catch (e) {
-    hasWebView = false;
+let hasMapsModule = false;
+
+// Only attempt to import react-native-maps on native platforms
+if (Platform.OS !== 'web') {
+    try {
+        const maps = require("react-native-maps");
+        MapView = maps.default ?? maps.MapView ?? maps;
+        Marker = maps.Marker ?? (maps.default && maps.default.Marker) ?? null;
+        hasMapsModule = true;
+    } catch (err) {
+        console.warn("react-native-maps not found:", err);
+    }
 }
 
+// Platform-safe WebView import
+let WebView: any = null;
+let hasWebView = false;
+
+try {
+    const wv = require('react-native-webview');
+    WebView = wv.WebView ?? wv.default ?? wv;
+    hasWebView = true;
+} catch (e) {
+    console.warn("react-native-webview not found:", e);
+}
 
 interface UserData {
     username: string;
@@ -36,21 +40,26 @@ interface UserData {
     certification_mode: string | null;
     reputation: string;
     events: string;
-    emergencyid:number;
+    emergencyid: number;
 
 }
 
 interface Urgenta {
     name: string;               // yes
     description: string;        // optional
-    location: [string,string]; // latx and laty
+    location: [string, string]; // latx and laty
     score: number; // how urgent is this 
-    count:number; // number of people that applied already 
-    id:number;
+    count: number; // number of people that applied already 
+    id: number;
 }
 
 const HomePage: React.FC = () => {
     const [userData, setUserData] = useState<UserData | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [urgencies, setUrgencies] = useState<Urgenta[]>([]);
+    const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+    const [selectedUrgency, setSelectedUrgency] = useState<Urgenta | null>(null);
+    const [detailsVisible, setDetailsVisible] = useState(false);
 
     useEffect(() => {
         loadUserData();
@@ -68,33 +77,32 @@ const HomePage: React.FC = () => {
         if (dir === "S" || dir === "W") n = -n;
         return n;
     };
+    const handleIntervene = async (selectedUrgency: Urgenta) => {
 
-    const [urgencies, setUrgencies] = useState<Urgenta[]>([]);
-    const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-    const [selectedUrgency, setSelectedUrgency] = useState<Urgenta | null>(null);
-    const [detailsVisible, setDetailsVisible] = useState(false);
+        openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))
+    }
+    const handleRefreshUrgencies = async () => {
+        const API_BASE = "http://192.168.232.182:5024"
+        // setUrgencies([]);
 
+        const response = await fetch("",
+            {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            }
+        )
+    }
     const loadUserData = async () => {
         try {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
-            const is_validated = await AsyncStorage.getItem("is_validated");
-            const certification_mode = await AsyncStorage.getItem("certification_mode");
+            const isValid = await AsyncStorage.getItem("isValid");
+            const certification_img = await AsyncStorage.getItem("certification_img");
             const reputation = await AsyncStorage.getItem("reputation");
             const events = await AsyncStorage.getItem("events");
             const emergencyid = await AsyncStorage.getItem("emergencyid");
-            {/*
-            
-            setUserData({
-                username: username || "",
-                email: email || "",
-                is_validated: is_validated === "true",
-                certification_mode: certification_mode || null,
-                reputation: reputation || '0',
-                events: events || '0',
-            });
-
-            */}
             setUserData({
                 username: username || "",
                 email: email || "",
@@ -102,7 +110,7 @@ const HomePage: React.FC = () => {
                 certification_mode: "yes",
                 reputation: reputation || '0',
                 events: events || '0',
-                emergencyid:emergencyid ? parseInt(emergencyid) : 0,
+                emergencyid: emergencyid ? parseInt(emergencyid) : 0,
             });
         } catch (error) {
             console.error("Error loading user data:", error);
@@ -110,23 +118,21 @@ const HomePage: React.FC = () => {
         }
     };
 
-    // Example/sample urgencies - replace with API fetch as needed
     useEffect(() => {
         const sample: Urgenta[] = [
-            { name: "Accident rutier", description: "Derived from a scrambled Latin text (Cicero's it's gibberish but mimics real language's character/word distribution, preventing distraction from design elements like typography", location: ["46.7712", "23.6236"], score: 8, count: 3, id:1},
-            { name: "Infarct", description: "Persoană inconștientă", location: ["46.7667", "23.5833"], score: 9, count: 1, id:2},
-            { name: "Cădere", description: "Persoană căzută pe stradă", location: ["46.7725", "23.6000"], score: 6, count: 0, id:3 },
+            { name: "Accident rutier", description: "Derived from a scrambled Latin text (Cicero's it's gibberish but mimics real language's character/word distribution, preventing distraction from design elements like typography", location: ["46.7712", "23.6236"], score: 8, count: 3, id: 1 },
+            { name: "Infarct", description: "Persoană inconștientă", location: ["46.7667", "23.5833"], score: 9, count: 1, id: 2 },
+            { name: "Cădere", description: "Persoană căzută pe stradă", location: ["46.7725", "23.6000"], score: 6, count: 0, id: 3 },
         ];
         setUrgencies(sample);
     }, []);
 
-    // Try to get device location (Expo Location preferred if available)
+
     useEffect(() => {
         const getLocation = async () => {
             try {
                 let locModule: any = null;
                 try {
-                    // eslint-disable-next-line @typescript-eslint/no-var-requires
                     locModule = require("expo-location");
                 } catch (e) {
                     locModule = null;
@@ -142,7 +148,6 @@ const HomePage: React.FC = () => {
                     }
                 }
 
-                // Fallback to navigator.geolocation (may be deprecated in some RN setups)
                 if (navigator && (navigator as any).geolocation) {
                     (navigator as any).geolocation.getCurrentPosition(
                         (pos: any) => setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
@@ -171,19 +176,17 @@ const HomePage: React.FC = () => {
     const openInMaps = (lat: number, lon: number) => {
         const latStr = lat.toString();
         const lonStr = lon.toString();
-        // Prefer Google Maps URL which opens app if installed
         const googleUrl = `https://www.google.com/maps/search/?api=1&query=${latStr},${lonStr}`;
         const wazeUrl = `https://waze.com/ul?ll=${latStr},${lonStr}&navigate=yes`;
 
-        // Try Google first
+
         Linking.openURL(googleUrl).catch(() => {
-            // try waze
             Linking.openURL(wazeUrl).catch((err) => console.warn("Could not open maps:", err));
         });
     };
 
     // Filter urgencies: only show those within 1km of user location
-    const closeUrgencies = userLocation 
+    const closeUrgencies = userLocation
         ? urgencies.filter(u => {
             const lat = parseCoord(u.location[0]);
             const lon = parseCoord(u.location[1]);
@@ -192,10 +195,10 @@ const HomePage: React.FC = () => {
         })
         : urgencies;
 
-        const makeLeafletHtml = (markers: Urgenta[]) => {
-                const points = markers.map(m => ({ lat: parseCoord(m.location[0]), lon: parseCoord(m.location[1]), name: m.name, desc: m.description }));
-                const ptsJson = JSON.stringify(points);
-                return `<!DOCTYPE html>
+    const makeLeafletHtml = (markers: Urgenta[]) => {
+        const points = markers.map(m => ({ lat: parseCoord(m.location[0]), lon: parseCoord(m.location[1]), name: m.name, desc: m.description }));
+        const ptsJson = JSON.stringify(points);
+        return `<!DOCTYPE html>
 <html>
     <head>
         <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0">
@@ -216,7 +219,7 @@ const HomePage: React.FC = () => {
         </script>
     </body>
 </html>`;
-        };
+    };
 
     return (
         <View style={styles.container}>
@@ -232,8 +235,15 @@ const HomePage: React.FC = () => {
                 </View>
             )}
             {userData != null && (userData.is_validated) && (
-                <ScrollView style={styles.holdsContainer}>
-                    
+                <ScrollView style={styles.holdsContainer}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={handleRefreshUrgencies}
+                            tintColor={theme.colors.primary}
+                            colors={[theme.colors.primary]}
+                        />
+                    }>
                     {/* Map + list of urgencies */}
                     <View style={styles.mapWrapper}>
                         {/* map area */}
@@ -278,7 +288,12 @@ const HomePage: React.FC = () => {
                             <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs. (în raza de 1 km)</Text>
                         )}
                     </View>
-
+                    <View style={{ marginBottom: 10 }}>
+                        <Text style={styles.title}>Urgențe Apropiate</Text>
+                        <Button mode="contained" style={{ backgroundColor: theme.colors.primary }} onPress={() => handleRefreshUrgencies()}>
+                            <Text style={styles.buttonText}>Actualizare urgente</Text>
+                        </Button>
+                    </View>
                     {/* cards list below map */}
                     <View style={styles.urgencyList}>
                         {closeUrgencies.map((u, i) => {
@@ -288,7 +303,7 @@ const HomePage: React.FC = () => {
                             return (
                                 <TouchableOpacity key={i} style={styles.urgencyCard} onPress={() => { setSelectedUrgency(u); setDetailsVisible(true); }}>
                                     <View>
-                                        <Text style={styles.detailText  }>{u.name}</Text>
+                                        <Text style={styles.detailText}>{u.name}</Text>
                                     </View>
                                     <View style={styles.urgencyMetaRow_Summary}>
                                         <View style={styles.stat_container_Summary}>
@@ -296,9 +311,9 @@ const HomePage: React.FC = () => {
                                                 <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
                                                 <Text style={styles.stat_element_text_Sumarry}>{u.score}/10</Text>
                                             </View>
-                                            
+
                                         </View>
-                                        
+
                                         <View style={styles.stat_container_Summary}>
                                             <View style={styles.stat_element_Sumarry}>
                                                 <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
@@ -316,82 +331,84 @@ const HomePage: React.FC = () => {
 
                     {/* Details modal for selected urgency */}
                     <Modal visible={detailsVisible} transparent animationType="slide" onRequestClose={() => setDetailsVisible(false)}>
-                        <View style={styles.modalOverlay}>
-                            <View style={styles.modalContentLarge}>
-                                {selectedUrgency ? (
-                                    <>
-                                        <Text style={styles.detailTitle}>{selectedUrgency.name}</Text>
-                                        <Text style={styles.detailText}>{selectedUrgency.description}</Text>
-                                        <View style={styles.stat_container}>
-                                            <View style={styles.stat_element}>
-                                                <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
-                                                <Text style={styles.stat_element_text}>Prioritate</Text>
-                                            </View>
-                                            <View style={styles.stat_element}>
-                                                <Text style={styles.stat_text}>{selectedUrgency.score}/10</Text>
-                                            </View>
-                                        </View>        
-                                        {userLocation ? (
+                        <ScrollView >
+                            <View style={styles.modalOverlay}>
+                                <View style={styles.modalContentLarge}>
+                                    {selectedUrgency ? (
+                                        <>
+                                            <Text style={styles.detailTitle}>{selectedUrgency.name}</Text>
+                                            <Text style={styles.detailText}>{selectedUrgency.description}</Text>
                                             <View style={styles.stat_container}>
                                                 <View style={styles.stat_element}>
-                                                    <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
-                                                    <Text style={styles.stat_element_text}>Distanță</Text>
+                                                    <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
+                                                    <Text style={styles.stat_element_text}>Prioritate</Text>
                                                 </View>
                                                 <View style={styles.stat_element}>
-                                                    <Text style={styles.stat_text}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(1)} km</Text>
+                                                    <Text style={styles.stat_text}>{selectedUrgency.score}/10</Text>
                                                 </View>
                                             </View>
-                                    ) : null}
-
-                                        <TouchableOpacity style={styles.intervineButton} onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}>
-                                            <Text style={styles.intervineButtonText}>Intervine</Text>
-                                        </TouchableOpacity>
-
-                                        <View style={styles.detailMapWrapper}>
-                                            {hasMapsModule && MapView ? (
-                                                <MapView
-                                                    style={styles.map}
-                                                    initialRegion={{
-                                                        latitude: parseCoord(selectedUrgency.location[0]),
-                                                        longitude: parseCoord(selectedUrgency.location[1]),
-                                                        latitudeDelta: 0.01,
-                                                        longitudeDelta: 0.01,
-                                                    }}
-                                                >
-                                                    {Marker ? (
-                                                        <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
-                                                    ) : null}
-                                                </MapView>
-                                            ) : hasWebView && WebView ? (
-                                                <WebView
-                                                    originWhitelist={["*"]}
-                                                    source={{ html: makeLeafletHtml([selectedUrgency]) }}
-                                                    style={styles.map}
-                                                />
-                                            ) : (
-                                                <View style={styles.mapUnavailable}>
-                                                    <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
+                                            {userLocation ? (
+                                                <View style={styles.stat_container}>
+                                                    <View style={styles.stat_element}>
+                                                        <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
+                                                        <Text style={styles.stat_element_text}>Distanță</Text>
+                                                    </View>
+                                                    <View style={styles.stat_element}>
+                                                        <Text style={styles.stat_text}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(1)} km</Text>
+                                                    </View>
                                                 </View>
-                                            )}
-                                        </View>
+                                            ) : null}
 
-                                        <TouchableOpacity style={styles.openMapButton} onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}>
-                                            <Text style={styles.openMapButtonText}>Deschide în Google Maps</Text>
-                                        </TouchableOpacity>
+                                            <TouchableOpacity style={styles.intervineButton} onPress={() => handleIntervene(selectedUrgency)}>
+                                                <Text style={styles.intervineButtonText}>Intervine</Text>
+                                            </TouchableOpacity>
 
-                                        <TouchableOpacity style={styles.modalCloseButton} onPress={() => setDetailsVisible(false)}>
-                                            <Text style={styles.modalCloseButtonText}>Închide</Text>
-                                        </TouchableOpacity>
-                                    </>
-                                ) : (
-                                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                                )}
+                                            <View style={styles.detailMapWrapper}>
+                                                {hasMapsModule && MapView ? (
+                                                    <MapView
+                                                        style={styles.map}
+                                                        initialRegion={{
+                                                            latitude: parseCoord(selectedUrgency.location[0]),
+                                                            longitude: parseCoord(selectedUrgency.location[1]),
+                                                            latitudeDelta: 0.01,
+                                                            longitudeDelta: 0.01,
+                                                        }}
+                                                    >
+                                                        {Marker ? (
+                                                            <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
+                                                        ) : null}
+                                                    </MapView>
+                                                ) : hasWebView && WebView ? (
+                                                    <WebView
+                                                        originWhitelist={["*"]}
+                                                        source={{ html: makeLeafletHtml([selectedUrgency]) }}
+                                                        style={styles.map}
+                                                    />
+                                                ) : (
+                                                    <View style={styles.mapUnavailable}>
+                                                        <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+
+                                            <TouchableOpacity style={styles.openMapButton} onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}>
+                                                <Text style={styles.openMapButtonText}>Deschide în Google Maps</Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setDetailsVisible(false)}>
+                                                <Text style={styles.modalCloseButtonText}>Închide</Text>
+                                            </TouchableOpacity>
+                                        </>
+                                    ) : (
+                                        <ActivityIndicator size="large" color={theme.colors.primary} />
+                                    )}
+                                </View>
                             </View>
-                        </View>
+                        </ScrollView>
                     </Modal>
-                </ScrollView>
+                </ScrollView >
             )}
-        </View>
+        </View >
     );
 };
 const styles = StyleSheet.create({
@@ -420,10 +437,11 @@ const styles = StyleSheet.create({
         marginBottom: 30,
     },
     title: {
-        fontSize: 28,
+        fontSize: 24,
         fontWeight: "bold",
-        marginBottom: 30,
-        color: theme.colors.outline,
+        marginBottom: 15,
+        alignSelf: 'center',
+        color: theme.colors.primary,
     },
     input: {
         width: "100%",
@@ -484,9 +502,9 @@ const styles = StyleSheet.create({
     stat_element_text: {
         color: theme.colors.onBackground,
     },
-    stat_element_text_Sumarry:{
+    stat_element_text_Sumarry: {
         color: theme.colors.onBackground,
-        fontSize:14,
+        fontSize: 14,
     },
     stat_element: {
         flex: 1,
