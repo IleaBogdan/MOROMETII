@@ -1,0 +1,10 @@
+### Create Test Emergency
+POST http://192.168.127.182:5024/api/emergency/MakeEmergency
+Content-Type: application/json
+
+{
+  "name": "Fire Alarm",
+  "location": "Building A",
+  "level": 1,
+  "description": "Test emergency"
+}

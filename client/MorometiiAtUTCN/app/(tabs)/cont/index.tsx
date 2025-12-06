@@ -1,24 +1,19 @@
-import React, { useState, useEffect } from "react";
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    ScrollView,
-    Alert,
-    ActivityIndicator,
-    Modal,
-} from "react-native";
-import { Picker } from "@react-native-picker/picker";
+import { theme } from "@/theme/theme";
+import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import { useDynamicTheme } from "@/theme/theme";
-import { MaterialIcons } from "@expo/vector-icons";
-import { Route } from "expo-router/build/Route";
-import { RelativePathString } from "expo-router";
-import { router } from "expo-router";
-
-const theme = useDynamicTheme();
+import { RelativePathString, router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 interface UserData {
     username: string;

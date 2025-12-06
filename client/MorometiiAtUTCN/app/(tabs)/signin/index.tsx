@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
-import { RelativePathString, useRouter } from "expo-router";
-import { theme } from '@/theme/theme'
+import { handleSignIn } from "@/api/apiCalls";
+import { theme } from '@/theme/theme';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { RelativePathString, useRouter } from "expo-router";
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 
 const SignInPage: React.FC = () => {
@@ -17,66 +17,22 @@ const SignInPage: React.FC = () => {
         router.push("/(tabs)/signup" as RelativePathString);
     };
 
-    const handleSignIn = async () => {
-
-        const API_BASE = "http://192.168.127.182:5024";
-
-        setLoading(true);
-
-        try {
-
-            const encodedEmail = (email.trim());
-
-            const encodedPassword = (password.trim());
-
-            const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodedEmail}&Password=${encodedPassword}`;
-
-            console.log("🔵 Attempting connection to:", url);
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-            const response = await fetch(url, {
-                method: 'GET',
-                signal: controller.signal,
-            });
-
-            clearTimeout(timeoutId);
-
-
-
-            const data = await response.json();
-
-
-            if (response.ok && data.isValid) {
-                await AsyncStorage.multiSet([
-                    ['email', email.trim()],
-                    ['password', password.trim()]
-                ]);
-                router.push("/(tabs)/acasa" as RelativePathString);
-            } else {
-                Alert.alert(
-                    "Eroare de Autentificare!",
-                    "Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!"
-                );
-            }
-        } catch (error: any) {
-
-            if (error.name === 'AbortError') {
-                Alert.alert(
-                    "Timeout",
-                    "Serverul nu răspunde. Verifică:\n• IP-ul serverului\n• Firewall-ul\n• Conexiunea la rețea"
-                );
-            } else {
-                Alert.alert(
-                    "Eroare de Rețea",
-                    `Nu se poate conecta la server.\n\nIP Server: 192.168.127.182:5024\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni`
-                );
-            }
-        } finally {
-            setLoading(false);
+    const handleLogin = async () => {
+        const result = await handleSignIn(setLoading, email, password);
+        
+        if (result && result.data && result.data.isValid && result.response.ok) {
+            await AsyncStorage.multiSet([
+                ['email', email.trim()],
+                ['password', password.trim()]
+            ]);
+            router.push("/(tabs)/acasa" as RelativePathString);
+        } else {
+            Alert.alert(
+                "Eroare de Autentificare!",
+                "Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!"
+            );
         }
-    };
+    }
 
     return (
         <View style={styles.container}>
@@ -104,7 +60,7 @@ const SignInPage: React.FC = () => {
 
             <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleSignIn}
+                onPress={handleLogin}
                 disabled={loading}
             >
                 {loading ? (

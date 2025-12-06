@@ -2,7 +2,7 @@ import { RelativePathString, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { checkLogin } from '@/api/checkLogin';
+import { checkLogin } from '@/api/apiCalls';
 import { theme } from '@/theme/theme';
 
 export default function Index() {

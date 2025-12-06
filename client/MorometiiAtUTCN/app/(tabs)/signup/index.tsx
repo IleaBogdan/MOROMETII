@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
-import { RelativePathString, useRouter } from "expo-router";
+import { _handleSignUp } from "@/api/apiCalls";
 import { useDynamicTheme } from "@/theme/theme";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { RelativePathString, useRouter } from "expo-router";
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 const theme = useDynamicTheme();
 
@@ -19,46 +20,22 @@ const SignUpPage: React.FC = () => {
     };
 
     const handleSignUp = async () => {
-        if (!username.trim() || !email.trim() || !password.trim()) {
-            Alert.alert("Eroare", "Te rugăm să completezi toate câmpurile!");
-            return;
+        if(password!==confirmpassword){
+            Alert.alert("Passwords do not match!");
+            return null;
         }
-        if (password != confirmpassword) {
-            Alert.alert("Eroare", "Te rugăm să te asiguri că parola este corectă!");
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // API call to database (placeholder)
-            const response = await fetch("https://api.example.com/signup", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    username,
-                    email,
-                    password,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.exists) {
-                // User exists, navigate to HomePage
-                router.push("/(tabs)/acasa" as RelativePathString);
-            }
-            if (!response.ok) {
-                Alert.alert("Eroare de Înregistrare", "Acest nume de utilizator este deja folosit!");
-            } else {
-                Alert.alert("Eroare de Înregistrare", "A apărut o eroare la înregistrare!");
-            }
-        } catch (error) {
-            Alert.alert("Eroare", "Te rugăm să încerci mai târziu!");
-            console.error(error);
-        } finally {
-            setLoading(false);
+        const result=await _handleSignUp(setLoading,username,email,password);
+        if(result&&result.data&&result.data.isValid&&result.response.ok){
+            await AsyncStorage.multiSet([
+                ['email', email.trim()],
+                ['password', password.trim()]
+            ]);
+            router.push("/(tabs)/acasa" as RelativePathString);
+        } else {
+            Alert.alert(
+                "Eroare de SignUp!",
+                "Nu s-a putut face contul"
+            );
         }
     };
 
