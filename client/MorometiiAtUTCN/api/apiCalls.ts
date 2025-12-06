@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 
-export const API_BASE = "http://192.168.43.214:5024";
+export const API_BASE = "http://192.168.232.182:5024";
 
 interface LoginResponse {
   EmCount: number;
