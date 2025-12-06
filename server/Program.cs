@@ -5,12 +5,8 @@ using System.Net;
 using System.Net.Sockets;
 
 var builder = WebApplication.CreateBuilder(args);
-/*
 var ip = Dns.GetHostAddresses(Dns.GetHostName())
     .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
-*/
-var ip = IPAddress.Parse("192.168.232.182");
-/*
 if (ip != null)
 {
     Console.WriteLine($"Listening on {ip}:5024");
@@ -28,7 +24,6 @@ else
         serverOptions.ListenAnyIP(5024);
     });
 }
-*/
 
 string sql_connect = null;
 sql_connect = string.Format("Server={0}\\SQLEXPRESS;Database=MOROMETII;Trusted_Connection=True;", ip);
