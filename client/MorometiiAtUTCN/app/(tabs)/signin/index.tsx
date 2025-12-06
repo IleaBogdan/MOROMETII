@@ -108,7 +108,7 @@ const SignInPage: React.FC = () => {
                 disabled={loading}
             >
                 {loading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={theme.colors.onBackground} />
                 ) : (
                     <Text style={styles.buttonText}>Autentificare</Text>
                 )}
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     bottom_text: {
-        color: "white",
+        color: theme.colors.onBackground,
     },
     buttonDisabled: {
         backgroundColor: "#ccc",

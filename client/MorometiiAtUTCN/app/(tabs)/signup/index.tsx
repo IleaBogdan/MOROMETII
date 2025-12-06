@@ -111,7 +111,7 @@ const SignUpPage: React.FC = () => {
                 disabled={loading}
             >
                 {loading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={theme.colors.onBackground} />
                 ) : (
                     <Text style={styles.buttonText}>Înregistrare</Text>
                 )}
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
         marginLeft: 5,
     },
     bottom_text: {
-        color: "white",
+        color: theme.colors.onBackground,
     },
     signupPrompt: {
         flexDirection: "row",
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#ccc",
     },
     buttonText: {
-        color: "#fff",
+        color: theme.colors.onBackground,
         fontSize: 18,
         fontWeight: "bold",
     },

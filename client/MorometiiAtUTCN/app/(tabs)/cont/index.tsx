@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     modalButtonText: {
-        color: "#fff",
+        color: theme.colors.onBackground,
         fontSize: 16,
         fontWeight: "bold",
     },
