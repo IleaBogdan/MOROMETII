@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using server.Models;
 using server.Controllers;
 using System.Data.SqlClient;
 using System.Linq;
@@ -33,10 +34,10 @@ namespace server.Hubs
             using var command = new SqlCommand(sql, connection);
             using var reader = command.ExecuteReader();
 
-            var emergencies = new List<Emergency.EmergencyObject>();
+            var emergencies = new List<EmergencyObject>();
             while (reader.Read())
             {
-                var emergency = new Emergency.EmergencyObject
+                var emergency = new EmergencyObject
                 {
                     Id = reader.GetInt32(reader.GetOrdinal("ID")),
                     Location = reader.GetString(reader.GetOrdinal("Location")),
@@ -55,7 +56,7 @@ namespace server.Hubs
             //}
 
             // Send to calling client
-            await Clients.Caller.SendAsync("ReceiveEmergencyUpdate", new Emergency.EmergencyResponse
+            await Clients.Caller.SendAsync("ReceiveEmergencyUpdate", new EmergencyResponse
             {
                 Error = null,
                 Ems = sortedEmergencies,

@@ -1,14 +1,14 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using server.Models;
 using System;
 using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Threading.Tasks;
 using System.Xml.Linq;
-using static server.Controllers.UserValidator;
+using System.Collections.Generic;
 
 namespace server.Controllers
 {
@@ -20,20 +20,6 @@ namespace server.Controllers
         public static void set_connection(string connectionString)
         {
             __connectionString = connectionString;
-        }
-        public class EmergencyObject
-        {
-            public int Id { get; set; }
-            public string Name { get; set; }
-            public string Description { get; set; }
-            public int Level { get; set; }
-            public string Location { get; set; }
-        }
-        public class EmergencyResponse
-        {
-            public string Error { get; set; }
-            public List<EmergencyObject> Ems { get; set; }
-            public int Count { get; set; }
         }
 
         [HttpGet]
@@ -83,32 +69,67 @@ namespace server.Controllers
             command.Parameters.AddWithValue("@Level", req.Level);
             command.Parameters.AddWithValue("@Description", req.Description);
 
-            using var reader = command.ExecuteReader();
+            command.ExecuteNonQuery();
 
-            return Ok(new EmergencyResponse { Error = null, Ems = null, Count = 0 });
+            return Ok(new EmergencyResponse { Error = null, Ems = null, Count = 1 });
         }
 
-        //[HttpDelete]
-        //[Route("DeleteEmergency")]
-        //[ProducesResponseType(typeof(EmergencyResponse), StatusCodes.Status200OK)]
-        //[ProducesResponseType(StatusCodes.Status400BadRequest)]
-        //public IActionResult DeleteEmergency([FromBody] EmergencyObject req)
-        //{
-        //    if (req == null)
-        //    {
-        //        return BadRequest(new EmergencyResponse
-        //        {
-        //            Error = "Invalid emergency ID",
-        //            Ems = null,
-        //            Count = 0
-        //        });
-        //    }
-        //    using var connection = new SqlConnection(__connectionString);
-        //    connection.Open();
+        [HttpDelete]
+        [Route("DeleteEmergency")]
+        [ProducesResponseType(typeof(EmergencyResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public IActionResult DeleteEmergency([FromBody] EmergencyObject req)
+        {
+            if (req == null || req.Id <= 0)
+            {
+                return BadRequest(new EmergencyResponse
+                {
+                    Error = "Invalid emergency ID",
+                    Ems = null,
+                    Count = 0
+                });
+            }
 
-        //    string sql = "Delete idk";
-            
-        //    return Ok(new EmergencyResponse { Error = null, Ems = null, Count = 0 });
-        //}
+            using var connection = new SqlConnection(__connectionString);
+            connection.Open();
+
+            string sql = @"
+                UPDATE Users
+                SET Reputation = ISNULL(Reputation, 0) + @Level,
+                    EmergenciesCompleted = ISNULL(EmergenciesCompleted, 0) + 1
+                WHERE EmergencyId = @EmergencyId";
+
+            using var commandUpdate = new SqlCommand(sql, connection);
+            commandUpdate.Parameters.AddWithValue("@Level", req.Level);
+            commandUpdate.Parameters.AddWithValue("@EmergencyId", req.Id);
+
+            commandUpdate.ExecuteNonQuery();
+
+            sql = "DELETE FROM Emergency WHERE ID = @Id";
+
+            using var commandDelete = new SqlCommand(sql, connection);
+            commandDelete.Parameters.AddWithValue("@Id", req.Id);
+
+            int rowsAffected = commandDelete.ExecuteNonQuery();
+
+            if (rowsAffected == 0)
+            {
+                return Ok(new EmergencyResponse
+                {
+                    Error = "No emergency deleted (id may not exist)",
+                    Ems = null,
+                    Count = 0
+                });
+            }
+
+            return Ok(new EmergencyResponse
+            {
+                Error = null,
+                Ems = null,
+                Count = rowsAffected
+            });
+        }
+
+        // previous DeleteEmergency placeholder removed and replaced with working implementation
     }
 }
