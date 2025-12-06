@@ -276,16 +276,6 @@ const AccountPage: React.FC = () => {
         >
             {/* User Info */}
             <View style={styles.userInfoSection}>
-                <View style={styles.logoutContainer}>
-                    <TouchableOpacity
-                        style={styles.logoutButton}
-                        onPress={handleLogout}
-                        activeOpacity={0.7}
-                    >
-                        <MaterialIcons name="logout" size={15} color={theme.colors.error} />
-                        <Text style={styles.logoutText}>Ieșire</Text>
-                    </TouchableOpacity>
-                </View>
                 <Text style={styles.userGreeting}>Bine ai venit, {userData.username}!</Text>
                 <Text style={styles.userEmail}>{userData.email}</Text>
                 {userData.isVerified && (
@@ -299,7 +289,7 @@ const AccountPage: React.FC = () => {
                         <View style={styles.stat_container}>
                             <View style={styles.stat_element}>
                                 <MaterialIcons name="military-tech" size={80} color={theme.colors.secondary} />
-                                <Text style={styles.stat_element_text}>Reputation</Text>
+                                <Text style={styles.stat_element_text}>Reputatie</Text>
                             </View>
                             <View style={styles.stat_element}>
                                 <Text style={styles.stat_text}>{userData.reputation}</Text>
@@ -310,7 +300,7 @@ const AccountPage: React.FC = () => {
                         <View style={styles.stat_container}>
                             <View style={styles.stat_element}>
                                 <MaterialIcons name="event-available" size={80} color={theme.colors.primaryContainer} />
-                                <Text style={styles.stat_element_text}>Events</Text>
+                                <Text style={styles.stat_element_text}>Evenimente</Text>
                             </View>
                             <View style={styles.stat_element}>
                                 <Text style={styles.stat_text}>{userData.reputation}</Text>
@@ -360,7 +350,17 @@ const AccountPage: React.FC = () => {
                     </View>
                 </View>
             )}
-
+            <View style={{ height: 30 }} />
+            <View style={{ paddingBottom: 200, minWidth: 100 }}>
+                <TouchableOpacity
+                    style={styles.logoutButton}
+                    onPress={handleLogout}
+                    activeOpacity={0.7}
+                >
+                    <MaterialIcons name="logout" size={15} color={theme.colors.error} />
+                    <Text style={styles.logoutText}>Ieșire</Text>
+                </TouchableOpacity>
+            </View>
             <Modal visible={photoModalVisible} transparent animationType="slide">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -395,20 +395,17 @@ const AccountPage: React.FC = () => {
                     </View>
                 </View>
             </Modal>
-        </ScrollView>
+        </ScrollView >
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        flexDirection: 'column',
         backgroundColor: theme.colors.background,
         padding: 20,
-    },
-    logoutContainer: {
-        position: 'absolute',
-        right: 10,
-        top: 10,
+        paddingVertical: 50,
     },
     logoutButton: {
         flexDirection: 'row',

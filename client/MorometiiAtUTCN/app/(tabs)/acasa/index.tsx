@@ -5,12 +5,12 @@ import { theme } from '@/theme/theme'
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Button } from "react-native-paper";
 import { API_BASE } from "@/api/apiCalls";
-// Platform-safe map imports
+
+
 let MapView: any = null;
 let Marker: any = null;
 let hasMapsModule = false;
 
-// Only attempt to import react-native-maps on native platforms
 if (Platform.OS !== 'web') {
     try {
         const maps = require("react-native-maps");
@@ -22,7 +22,6 @@ if (Platform.OS !== 'web') {
     }
 }
 
-// Platform-safe WebView import
 let WebView: any = null;
 let hasWebView = false;
 
@@ -305,10 +304,7 @@ const HomePage: React.FC = () => {
                     </View>
                     <View style={{ marginBottom: 10 }}>
                         <Text style={styles.title}>Urgențe Apropiate</Text>
-                        <Button mode="contained" style={{ backgroundColor: theme.colors.primary }} onPress={() => handleRefreshUrgencies}>
-
-                            <Text style={styles.buttonText}>Actualizare urgente</Text>
-                        </Button>
+                        <Text style={{ color: "white" }}> Glisati in jos pentru a actualiza urgentele</Text>
                     </View>
                     {/* cards list below map */}
                     {isRefreshing ? (
@@ -372,7 +368,8 @@ const HomePage: React.FC = () => {
 
 
                     <Modal visible={detailsVisible} transparent animationType="slide" onRequestClose={() => setDetailsVisible(false)}>
-                        <ScrollView >
+
+                        <ScrollView contentContainerStyle={{ paddingTop: 0 }} keyboardShouldPersistTaps="handled">
                             <View style={styles.modalOverlay}>
                                 <View style={styles.modalContentLarge}>
                                     {selectedUrgency ? (
@@ -454,6 +451,7 @@ const HomePage: React.FC = () => {
                                     )}
                                 </View>
                             </View>
+                            <View style={{ height: 50 }} />
                         </ScrollView>
                     </Modal>
                 </ScrollView >
@@ -470,13 +468,13 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     infoTitle: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: "bold",
         color: theme.colors.onBackground,
         marginBottom: 10,
     },
     infoDescription: {
-        fontSize: 14,
+        fontSize: 12,
         color: theme.colors.onBackground,
         lineHeight: 20,
     },
@@ -487,7 +485,7 @@ const styles = StyleSheet.create({
         marginBottom: 30,
     },
     title: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: "bold",
         marginBottom: 15,
         alignSelf: 'center',
@@ -521,7 +519,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     emptyStateTitle: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: 'bold',
         color: theme.colors.onBackground,
         marginTop: 20,
@@ -529,7 +527,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     emptyStateDescription: {
-        fontSize: 16,
+        fontSize: 12,
         color: theme.colors.onBackground,
         textAlign: 'center',
         marginBottom: 8,
@@ -686,11 +684,11 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.5)",
         justifyContent: "center",
         alignItems: "center",
-        padding: 20,
+        padding: 10,
+
     },
     modalContentLarge: {
         width: "100%",
-        maxHeight: "90%",
         backgroundColor: theme.colors.background,
         borderRadius: 12,
         padding: 16,
@@ -713,18 +711,18 @@ const styles = StyleSheet.create({
         marginVertical: 12,
     },
     openMapButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.secondaryContainer,
         padding: 12,
         borderRadius: 8,
         alignItems: "center",
         marginBottom: 10,
     },
     openMapButtonText: {
-        color: theme.colors.onBackground,
+        color: 'white',
         fontWeight: "bold",
     },
     intervineButton: {
-        backgroundColor: theme.colors.secondary,
+        backgroundColor: theme.colors.primaryContainer,
         padding: 12,
         borderRadius: 8,
         alignItems: "center",
@@ -733,6 +731,7 @@ const styles = StyleSheet.create({
     intervineButtonText: {
         color: theme.colors.onBackground,
         fontWeight: "bold",
+        fontSize: 16,
     },
     modalCloseButton: {
         backgroundColor: theme.colors.outline,
