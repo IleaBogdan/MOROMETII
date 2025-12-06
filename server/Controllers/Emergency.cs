@@ -30,10 +30,7 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string sql = @"SELECT * FROM Emergency WHERE
-                            Location_X BETWEEN @Location_X-30 AND @Location_X+30
-                            OR
-                            Location_Y BETWEEN @Location_Y-30 AND @Location_Y+30";
+            string sql = @"SELECT * FROM Emergency";
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@Location_X", Location_X);
