@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from "react";
+import { theme } from '@/theme/theme';
 import { MaterialIcons } from "@expo/vector-icons";
-import { View, Text, Alert, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Linking, Platform, ScrollView } from "react-native";
-import { theme } from '@/theme/theme'
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 // react-native-maps may not be available in the running native build (Expo Go vs custom dev client).
 // Try to require it dynamically and fall back gracefully if the native module is missing.
 let MapView: any = null;
 let Marker: any = null;
 let hasMapsModule = true;
 try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     const maps = require("react-native-maps");
     MapView = maps.default ?? maps.MapView ?? maps;
     Marker = maps.Marker ?? (maps.default && maps.default.Marker) ?? null;
@@ -21,7 +21,7 @@ try {
 let WebView: any = null;
 let hasWebView = true;
 try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     const wv = require('react-native-webview');
     WebView = wv.WebView ?? wv.default ?? wv;
 } catch (e) {
@@ -112,11 +112,7 @@ const HomePage: React.FC = () => {
 
     // Example/sample urgencies - replace with API fetch as needed
     useEffect(() => {
-        const sample: Urgenta[] = [
-            { name: "Accident rutier", description: "Derived from a scrambled Latin text (Cicero's it's gibberish but mimics real language's character/word distribution, preventing distraction from design elements like typography", location: ["46.7712", "23.6236"], score: 8, count: 3, id:1},
-            { name: "Infarct", description: "Persoană inconștientă", location: ["46.7667", "23.5833"], score: 9, count: 1, id:2},
-            { name: "Cădere", description: "Persoană căzută pe stradă", location: ["46.7725", "23.6000"], score: 6, count: 0, id:3 },
-        ];
+        const sample: Urgenta[] = [];
         setUrgencies(sample);
     }, []);
 
@@ -126,7 +122,6 @@ const HomePage: React.FC = () => {
             try {
                 let locModule: any = null;
                 try {
-                    // eslint-disable-next-line @typescript-eslint/no-var-requires
                     locModule = require("expo-location");
                 } catch (e) {
                     locModule = null;
