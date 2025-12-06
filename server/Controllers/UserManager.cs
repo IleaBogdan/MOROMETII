@@ -70,7 +70,8 @@ namespace server.Controllers
                 string sql = @"UPDATE Users SET Certificate = @Certificate,
                                 CertificateContentType = @ContentType,
                                 CertificateFileName = @FileName,
-                                CertificateFileSize = @FileSize
+                                CertificateFileSize = @FileSize,
+                                IsImage = 1
                                 WHERE Id = @UserId";
 
                 using var command = new SqlCommand(sql, connection);

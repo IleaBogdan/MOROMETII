@@ -33,6 +33,8 @@ namespace server.Controllers
             public string Username { get; set; }
             public bool isVerified { get; set; }
             public int EmCount { get; set; }
+            public int Reputation {  get; set; }
+            public bool IsImage {  get; set; }
         }
 
         [HttpGet]
@@ -50,12 +52,16 @@ namespace server.Controllers
 
             // Updated SQL to include isVerified and calculate email count
             string sql = @"SELECT 
-                            u.Id, 
-                            u.Name, 
-                            u.isVerified,
-                            (SELECT COUNT(*) FROM Users WHERE Email = @Email) as EmCount
-                         FROM Users u 
-                         WHERE u.Email=@Email AND u.Password=@Password";
+                            Id, 
+                            Name, 
+                            Email, 
+                            Password, 
+                            isVerified,
+                            EmCount,
+                            IsImage,
+                            Reputation
+                        FROM Users 
+                        WHERE Email=@Email AND Password=@Password";
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@Email", Email);
@@ -79,8 +85,18 @@ namespace server.Controllers
                     isVerified = reader.GetBoolean(isVerifiedOrdinal);
                 }
 
-                // Get the email count
-                int emCount = reader.GetInt32(reader.GetOrdinal("EmCount"));
+                // Safe reading with null checks
+                int emCount = reader.IsDBNull(reader.GetOrdinal("EmCount"))
+                    ? 0  // or whatever default makes sense for your app
+                    : reader.GetInt32(reader.GetOrdinal("EmCount"));
+
+                bool isImage = reader.IsDBNull(reader.GetOrdinal("IsImage"))
+                    ? false  // default to false if null
+                    : reader.GetBoolean(reader.GetOrdinal("IsImage"));
+
+                int reputation = reader.IsDBNull(reader.GetOrdinal("Reputation"))
+                    ? 0  // default to 0 if null
+                    : reader.GetInt32(reader.GetOrdinal("Reputation"));
 
                 return Ok(new LoginResponse
                 {
@@ -89,7 +105,9 @@ namespace server.Controllers
                     Id = userId,
                     Username = username,
                     isVerified = isVerified,
-                    EmCount = emCount
+                    EmCount = emCount,
+                    IsImage= isImage,
+                    Reputation = reputation
                 });
             }
             else
@@ -103,11 +121,7 @@ namespace server.Controllers
                 return Ok(new LoginResponse
                 {
                     Error = "Wrong Credentials",
-                    IsValid = false,
-                    Id = 0,
-                    Username = null,
-                    isVerified = false,
-                    EmCount = emailExists
+                    IsValid = false
                 });
             }
         }
