@@ -20,13 +20,14 @@ const SignUpPage: React.FC = () => {
     };
 
     const handleSignUp = async () => {
-        if(password!==confirmpassword){
+        if (password !== confirmpassword) {
             Alert.alert("Passwords do not match!");
             return null;
         }
-        const result=await _handleSignUp(setLoading,username,email,password);
-        if(result&&result.data&&result.data.isValid&&result.response.ok){
+        const result = await _handleSignUp(setLoading, username, email, password, confirmpassword, router);
+        if (result && result.data && result.data.IsValid && result.response.ok) {
             await AsyncStorage.multiSet([
+                ['username', username],
                 ['email', email.trim()],
                 ['password', password.trim()]
             ]);
