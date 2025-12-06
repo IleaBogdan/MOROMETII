@@ -42,10 +42,10 @@ const HomePage: React.FC = () => {
 
             */}
             setUserData({
-                username: 'Rares',
-                email: 'email',
-                is_validated: 1<0,
-                certification_mode: "yes",
+                username: username || "",
+                email: email || "",
+                is_validated: is_validated === "true",
+                certification_mode: certification_mode || null,
                 reputation: reputation || '0',
                 events: events || '0',
             });
