@@ -17,7 +17,7 @@ export default function Index() {
                 if (email && password) {
                     const result = await checkLogin(email, password);
 
-                    const isValid = result?.isValid === true || result?.exists === true;
+                    const isValid = result?.isValid === true;
 
                     if (isValid) {
                         router.replace('/(tabs)/acasa' as RelativePathString);

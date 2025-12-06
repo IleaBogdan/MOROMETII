@@ -56,7 +56,6 @@ const HomePage: React.FC = () => {
 
     return (
         <View style={styles.container}>
-            {/* Show this section if the user is not yet verified */}
             {!userData || (!userData.is_validated) && (
                 <View style={styles.certificationInfo}>
                     <Text style={styles.infoTitle}>Înainte să începem...</Text>
@@ -68,22 +67,14 @@ const HomePage: React.FC = () => {
                     </Text>
                 </View>
             )}
-            {userData != null && (userData.is_validated) && (
-                <View style={styles.container}>
-                    <Text style={styles.bottom_text}>
-                        This is where all the emergencies will be displayed once the API is a thing :)
-                    </Text>
-                </View>
-            )}
         </View>
     );
 };
-
-
 const styles = StyleSheet.create({
 
     container: {
         flex: 1,
+        justifyContent: 'center',
         backgroundColor: theme.colors.background,
         padding: 20,
     },
