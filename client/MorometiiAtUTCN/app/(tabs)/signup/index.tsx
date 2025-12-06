@@ -1,10 +1,7 @@
-import React, { useState } from "react";
-import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
+import { theme } from "@/theme/theme";
 import { RelativePathString, useRouter } from "expo-router";
-import { useDynamicTheme } from "@/theme/theme";
-
-
-const theme = useDynamicTheme();
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 const SignUpPage: React.FC = () => {
     const [username, setUsername] = useState("");
@@ -23,7 +20,7 @@ const SignUpPage: React.FC = () => {
             Alert.alert("Eroare", "Te rugăm să completezi toate câmpurile!");
             return;
         }
-        if (password != confirmpassword) {
+        if (password !== confirmpassword) {
             Alert.alert("Eroare", "Te rugăm să te asiguri că parola este corectă!");
             return;
         }

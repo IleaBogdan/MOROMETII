@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, Alert, StyleSheet } from "react-native";
-import { RelativePathString, useRouter } from "expo-router";
-import { theme } from '@/theme/theme'
+import { theme } from '@/theme/theme';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { RelativePathString, useRouter } from "expo-router";
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 
 
@@ -19,7 +19,7 @@ const SignInPage: React.FC = () => {
 
     const handleSignIn = async () => {
 
-        const API_BASE = "http://192.168.127.182:5024";
+        const API_BASE =  process.env.API_BASE;
 
         setLoading(true);
 
