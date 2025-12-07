@@ -1,4 +1,5 @@
 import { handleSignIn } from "@/api/apiCalls";
+import { useAuth } from "@/hooks/AuthContext";
 import { theme } from '@/theme/theme';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RelativePathString, useRouter } from "expo-router";
@@ -12,6 +13,8 @@ const SignInPage: React.FC = () => {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+
+    const { refreshAdminStatus } = useAuth();
 
     const handleRedirectToSignUp = () => {
         router.push("/(tabs)/signup" as RelativePathString);
@@ -32,7 +35,7 @@ const SignInPage: React.FC = () => {
                 ['id', (result.data.id).toString() || '0'],
                 ['isAdmin', result.data.isAdmin === 'true' ? 'true' : 'false'],
             ]);
-
+            await refreshAdminStatus();
             router.replace("/(tabs)/acasa" as RelativePathString);
         } else if (result?.data.error) {
             Alert.alert(
