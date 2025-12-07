@@ -60,6 +60,15 @@ interface databaseUrgency {
     location_X: number;
     location_Y: number;
 }
+interface databaseUrgency {
+    name: string;
+    id: number;
+    description: string;
+    level: number;
+    location_X: number;
+    location_Y: number;
+}
+
 
 
 const HomePage: React.FC = () => {
