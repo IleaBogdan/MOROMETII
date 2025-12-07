@@ -369,6 +369,10 @@ const AccountPage: React.FC = () => {
                 </View>
             </View>
 
+            <Text style={styles.profileEmail}>
+                Reputația reprezintă totalul dificultăților tuturor urgențelor la care ai aplicat până acum. De asemenea, ținem cont și de numărul total de evenimente la care ai participat.{"\n"}
+            </Text>
+
             {/* Certification Section */}
             {(!userData.isVerified && !userData.certification_img) && (
                 <View style={styles.certificationSection}>
