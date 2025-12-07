@@ -202,7 +202,6 @@ const HomePage: React.FC = () => {
                 throw new Error(`Server returned status ${response.status} but invalid JSON.`);
             }
 
-            console.log("API Response:", data);
 
             if (response.ok && data.error === null) {
                 const namesList = data.names
@@ -275,6 +274,7 @@ const HomePage: React.FC = () => {
 
 
     const loadUserData = async () => {
+
         try {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
@@ -298,6 +298,7 @@ const HomePage: React.FC = () => {
             console.error("Error loading user data:", error);
             Alert.alert("Eroare", "Nu s-au putut încărca datele utilizatorului");
         }
+        console.log(userData?.is_validated);
     };
 
 
@@ -382,6 +383,8 @@ const HomePage: React.FC = () => {
         return selectedUrgency && userData ? isUserIntervening(interveningEmergencies, selectedUrgency.id, userData.username) : false;
     }, [selectedUrgency, userData, interveningEmergencies]);
 
+    const isVerified = userData?.certification_mode && userData.is_validated;
+    const isInProcess = userData?.certification_mode && !userData.is_validated;
 
     return (
         <View style={styles.container}>
@@ -450,7 +453,65 @@ const HomePage: React.FC = () => {
                             <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs.</Text>
                         )}
                     </View>
-                    <View style={{ marginBottom: 10 }}>
+                </ScrollView>
+            )
+            }
+            {
+                userData != null && isVerified && (
+                    <ScrollView style={styles.holdsContainer}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={handleRefreshUrgencies}
+                                tintColor={theme.colors.primary}
+                                colors={[theme.colors.primary]}
+                            />
+                        }>
+                        {/* Map + list of urgencies */}
+                        <View style={styles.mapWrapper}>
+                            {/* map area */}
+                            {closeUrgencies.length > 0 ? (
+                                hasMapsModule && MapView ? (
+                                    <MapView
+                                        style={styles.map}
+                                        initialRegion={{
+                                            latitude: closeUrgencies[0].location_X,
+                                            longitude: closeUrgencies[0].location_Y,
+                                            latitudeDelta: 0.05,
+                                            longitudeDelta: 0.05,
+                                        }}
+                                    >
+                                        {closeUrgencies.map((u, idx) => (
+                                            Marker ? (
+
+                                                <Marker
+                                                    key={idx}
+                                                    coordinate={{
+                                                        latitude: u.location_X,
+                                                        longitude: u.location_Y,
+                                                    }}
+                                                    title={u.name}
+                                                    description={u.description}
+                                                />
+                                            ) : null
+                                        ))}
+                                    </MapView>
+                                ) : hasWebView && WebView ? (
+                                    <WebView
+                                        originWhitelist={["*"]}
+                                        source={{ html: makeLeafletHtml(closeUrgencies) }}
+                                        style={styles.map}
+                                    />
+                                ) : (
+                                    <View style={styles.mapUnavailable}>
+                                        <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune. </Text>
+                                    </View>
+                                )
+                            ) : (
+                                <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs.</Text>
+                            )}
+                        </View>
+                        {/* <View style={{ marginBottom: 10 }}>
                         <Text style={styles.title}>Urgențe Apropiate</Text>
                         <Text style={{ color: theme.colors.onBackground, fontSize: 13, opacity: 0.7 }}>Glisati in jos pentru a actualiza urgentele</Text>
                     </View>
@@ -521,59 +582,66 @@ const HomePage: React.FC = () => {
                                                         <Text style={styles.metaText}>{interveners.length}</Text>
                                                     </View>
                                                 </View>
-                                            </View>
 
-                                            {/* Arrow indicator */}
-                                            <View style={styles.cardArrow}>
-                                                <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
-                                            </View>
+                                                {/* Arrow indicator */}
+                                                <View style={styles.cardArrow}>
+                                                    <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            )}
+                        {/* Details modal for selected urgency */}
+                        <Modal visible={detailsVisible} transparent animationType="fade" onRequestClose={() => setDetailsVisible(false)}>
+                            <View style={styles.modalFullScreen}>
+                                {selectedUrgency ? (
+                                    <>
+                                        {/* Full-screen map background */}
+                                        <View style={styles.mapFullScreen}>
+                                            {hasMapsModule && MapView ? (
+                                                <MapView
+                                                    style={styles.map}
+                                                    initialRegion={{
+                                                        latitude: parseCoord(selectedUrgency.location[0]),
+                                                        longitude: parseCoord(selectedUrgency.location[1]),
+                                                        latitudeDelta: 0.02,
+                                                        longitudeDelta: 0.02,
+                                                    }}
+                                                >
+                                                    {Marker ? (
+                                                        <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
+                                                    ) : null}
+                                                </MapView>
+                                            ) : hasWebView && WebView ? (
+                                                <WebView
+                                                    originWhitelist={["*"]}
+                                                    source={{
+                                                        html: makeLeafletHtml([{
+                                                            name: selectedUrgency.name,
+                                                            id: selectedUrgency.id,
+                                                            description: selectedUrgency.description,
+                                                            level: selectedUrgency.score,
+                                                            location_X: parseCoord(selectedUrgency.location[0]),
+                                                            location_Y: parseCoord(selectedUrgency.location[1]),
+                                                        }])
+                                                    }}
+                                                    style={styles.map}
+                                                />
+                                            ) : (
+                                                <View style={styles.mapUnavailable}>
+                                                    <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        {/* Close button (top-left) */}
+                                        <TouchableOpacity
+                                            style={styles.closeButtonOverlay}
+                                            onPress={() => setDetailsVisible(false)}
+                                        >
+                                            <MaterialIcons name="arrow-back" size={28} color="white" />
                                         </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        )}
-                    {/* Details modal for selected urgency */}
-                    <Modal visible={detailsVisible} transparent animationType="fade" onRequestClose={() => setDetailsVisible(false)}>
-                        <View style={styles.modalFullScreen}>
-                            {selectedUrgency ? (
-                                <>
-                                    {/* Full-screen map background */}
-                                    <View style={styles.mapFullScreen}>
-                                        {hasMapsModule && MapView ? (
-                                            <MapView
-                                                style={styles.map}
-                                                initialRegion={{
-                                                    latitude: parseCoord(selectedUrgency.location[0]),
-                                                    longitude: parseCoord(selectedUrgency.location[1]),
-                                                    latitudeDelta: 0.02,
-                                                    longitudeDelta: 0.02,
-                                                }}
-                                            >
-                                                {Marker ? (
-                                                    <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
-                                                ) : null}
-                                            </MapView>
-                                        ) : hasWebView && WebView ? (
-                                            <WebView
-                                                originWhitelist={["*"]}
-                                                source={{
-                                                    html: makeLeafletHtml([{
-                                                        name: selectedUrgency.name,
-                                                        id: selectedUrgency.id,
-                                                        description: selectedUrgency.description,
-                                                        level: selectedUrgency.score,
-                                                        location_X: parseCoord(selectedUrgency.location[0]),
-                                                        location_Y: parseCoord(selectedUrgency.location[1]),
-                                                    }])
-                                                }}
-                                                style={styles.map}
-                                            />
-                                        ) : (
-                                            <View style={styles.mapUnavailable}>
-                                                <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
-                                            </View>
-                                        )}
-                                    </View>
 
                                     {/* Close button (top-left) */}
                                     <TouchableOpacity
@@ -604,9 +672,16 @@ const HomePage: React.FC = () => {
                                                     </View>
                                                 </View>
 
-                                                {userLocation ? (
+                                                {/* Title */}
+                                                <Text style={styles.cardTitle}>{selectedUrgency.name}</Text>
+
+                                                {/* Description */}
+                                                <Text style={styles.cardDescription}>{selectedUrgency.description}</Text>
+
+                                                {/* Info stats */}
+                                                <View style={styles.infoStats}>
                                                     <View style={styles.infoStatItem}>
-                                                        <MaterialIcons name="place" size={20} color={theme.colors.secondary} />
+                                                        <MaterialIcons name="priority-high" size={20} color={theme.colors.errorContainer} />
                                                         <View style={styles.infoStatText}>
                                                             <Text style={styles.infoStatLabel}>Distanță</Text>
                                                             <Text style={styles.infoStatValue}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(2)} km</Text>
@@ -634,19 +709,19 @@ const HomePage: React.FC = () => {
                                                 </TouchableOpacity>
                                             </View>
 
-                                            <View style={{ height: 20 }} />
-                                        </ScrollView>
+                                                <View style={{ height: 20 }} />
+                                            </ScrollView>
+                                        </View>
+                                    </>
+                                ) : (
+                                    <View style={styles.loadingContainer}>
+                                        <ActivityIndicator size="large" color={theme.colors.primary} />
                                     </View>
-                                </>
-                            ) : (
-                                <View style={styles.loadingContainer}>
-                                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                                </View>
-                            )}
-                        </View>
-                    </Modal>
-                </ScrollView >
-            )
+                                )}
+                            </View>
+                        </Modal>
+                    </ScrollView >
+                )
             }
         </View >
     );

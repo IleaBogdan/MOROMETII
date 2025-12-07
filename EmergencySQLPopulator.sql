@@ -1,10 +1,12 @@
 select * from Users
 
 UPDATE Users
-SET [EmCount] = 4
-WHERE Id = 1;
+SET [IsVerified] = 1
+WHERE Id = 9;
 
 select * from Emergency
+
+update Emergency set [ApplyersUsernames]=NULL, [ActiveApplyers]=NULL where ID=42
 
 DELETE FROM Emergency;
 

@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { RelativePathString, router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -26,6 +26,7 @@ interface UserData {
     reputation: number | null;
     events: number | null;
     id: number;
+    isAdmin: boolean | null;
 }
 
 const AccountPage: React.FC = () => {
@@ -33,26 +34,31 @@ const AccountPage: React.FC = () => {
     const [photoModalVisible, setPhotoModalVisible] = useState(false);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const isFetchingRef = useRef(false);
 
     useEffect(() => {
         const initialize = async () => {
-            await loadUserData();
+            await loadCachedUserData(); // Load cached data first for instant UI
+            setIsInitialized(true);
         };
         initialize();
     }, []);
 
     useFocusEffect(
         useCallback(() => {
-            // Reload user data whenever this screen gains focus (e.g. after login)
-            loadUserData();
-        }, [])
+            // Only fetch fresh data if initialized and not already fetching
+            if (isInitialized && !isFetchingRef.current && !isRefreshing) {
+                loadUserData();
+            }
+        }, [isInitialized, isRefreshing])
     );
+
     const handleRefresh = async () => {
         setIsRefreshing(true);
         await loadUserData();
-        setTimeout(() => setIsRefreshing(false), 1000);
+        setIsRefreshing(false);
     };
-
 
     const handleLogout = async () => {
         Alert.alert(
@@ -68,12 +74,10 @@ const AccountPage: React.FC = () => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-
                             const keys = await AsyncStorage.getAllKeys();
                             await AsyncStorage.multiRemove(keys);
-                            await AsyncStorage.clear();
-
-                            router.replace("/(tabs)/signin" as RelativePathString);
+                            setUserData(null);
+                            setTimeout(() => router.replace("/(tabs)/signin" as RelativePathString), 100);
                         } catch (error) {
                             console.error('Failed to logout:', error);
                             Alert.alert("Eroare", "Nu s-a putut efectua deconectarea. Te rugăm să încerci din nou.");
@@ -83,18 +87,25 @@ const AccountPage: React.FC = () => {
             ]
         );
     };
+
     const loadUserData = async () => {
+        if (isFetchingRef.current) {
+            return;
+        }
+
+        isFetchingRef.current = true;
+
         try {
-            const email = await AsyncStorage.getItem("email");
+            const username = await AsyncStorage.getItem("username");
             const password = await AsyncStorage.getItem("password");
 
-            if (!email || !password) {
-                console.error("No credentials found in storage");
+            if (!username || !password) {
+                console.warn("No credentials found in storage");
                 await loadCachedUserData();
                 return;
             }
 
-            const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodeURIComponent(email)}&Password=${encodeURIComponent(password)}`;
+            const url = `${API_BASE}/api/UserValidator/CheckLogin?Name=${username}&Password=${password}`;
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -108,7 +119,19 @@ const AccountPage: React.FC = () => {
                 clearTimeout(timeoutId);
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    console.warn(`HTTP error! status: ${response.status}`);
+
+                    if (isRefreshing) {
+                        Alert.alert(
+                            "Eroare de conectare",
+                            "Nu s-au putut actualiza datele. Verifică conexiunea la internet.",
+                            [{ text: "OK" }]
+                        );
+                    }
+
+                    // Use cached data on error
+                    await loadCachedUserData();
+                    return;
                 }
 
                 const result = await response.json();
@@ -121,21 +144,37 @@ const AccountPage: React.FC = () => {
                         ['reputation', result.reputation !== undefined ? result.reputation.toString() : '0'],
                         ['events', result.emCount !== undefined ? result.emCount.toString() : '0'],
                         ['id', result.id ? result.id.toString() : '0'],
+                        ['isAdmin', result.isAdmin ? 'true' : 'false'],
                     ]);
+
+                    await loadCachedUserData();
                 }
-            } catch (fetchError) {
+            } catch (fetchError: any) {
                 clearTimeout(timeoutId);
-                console.error("Fetch error:", fetchError);
-                if (!isRefreshing) {
-                    console.warn("Failed to fetch updated data, using cached data");
+
+                if (fetchError.name === 'AbortError') {
+                    console.warn("Request timed out");
+                } else {
+                    console.warn("Fetch error:", fetchError.message || fetchError);
                 }
+
+                if (isRefreshing) {
+                    Alert.alert(
+                        "Eroare de conectare",
+                        "Nu s-au putut actualiza datele. Se folosesc datele salvate local.",
+                        [{ text: "OK" }]
+                    );
+                }
+
+                // Fallback to cached data
+                await loadCachedUserData();
             }
 
+        } catch (error: any) {
+            console.error("Error in loadUserData:", error.message || error);
             await loadCachedUserData();
-
-        } catch (error) {
-            console.error("Error in loadUserData:", error);
-            await loadCachedUserData();
+        } finally {
+            isFetchingRef.current = false;
         }
     };
 
@@ -148,6 +187,7 @@ const AccountPage: React.FC = () => {
             const reputation = await AsyncStorage.getItem("reputation");
             const events = await AsyncStorage.getItem("events");
             const id = await AsyncStorage.getItem("id");
+            const isAdmin = await AsyncStorage.getItem("isAdmin");
 
             setUserData({
                 username: username || "",
@@ -157,6 +197,7 @@ const AccountPage: React.FC = () => {
                 reputation: reputation ? parseInt(reputation) : 0,
                 events: events ? parseInt(events) : 0,
                 id: id ? parseInt(id) : 0,
+                isAdmin: isAdmin === 'true',
             });
         } catch (error) {
             console.error("Error loading cached user data:", error);
@@ -200,7 +241,6 @@ const AccountPage: React.FC = () => {
     const uploadDiplomaPhoto = async (photoUri: string) => {
         setUploadingPhoto(true);
         try {
-            // Ensure we have a user id — prefer AsyncStorage (fresh) then fallback to loaded userData
             const idFromStorage = await AsyncStorage.getItem("id");
             const userId = idFromStorage ? parseInt(idFromStorage, 10) : userData?.id;
 
@@ -211,7 +251,6 @@ const AccountPage: React.FC = () => {
 
             const formData = new FormData();
 
-            // Derive a filename and mime type from the URI
             const uriParts = photoUri.split("/");
             const fileName = uriParts[uriParts.length - 1] || `diploma_${userData?.username || userId}.jpg`;
             const extMatch = /\.([a-zA-Z0-9]+)$/.exec(fileName);
@@ -223,7 +262,6 @@ const AccountPage: React.FC = () => {
                 else if (ext === "gif") mimeType = "image/gif";
             }
 
-            // The server expects 'CertificateFile' and 'UserId' in the multipart form
             formData.append("CertificateFile", {
                 uri: photoUri,
                 name: fileName,
@@ -234,19 +272,17 @@ const AccountPage: React.FC = () => {
             const response = await fetch(API_BASE + "/api/UserManager/UploadCertificate", {
                 method: "POST",
                 body: formData,
-                // Don't set Content-Type; let fetch add the multipart boundary
                 headers: {
                     Accept: "application/json",
                 },
             });
 
-            // Try to parse response JSON if present
             const resJson = await response.json().catch(() => null);
 
             if (response.ok) {
                 await AsyncStorage.setItem("certification_img", "true");
-                await AsyncStorage.setItem("is_validated", "true");
-                setUserData(prev => prev ? { ...prev, certification_img: true, is_validated: true } : null);
+                await AsyncStorage.setItem("isVerified", "true");
+                setUserData(prev => prev ? { ...prev, certification_img: true, isVerified: true } : null);
                 Alert.alert("Succes!", "Diploma a fost încărcată cu succes");
                 setPhotoModalVisible(false);
             } else {
@@ -268,7 +304,11 @@ const AccountPage: React.FC = () => {
     };
 
     if (!userData) {
-        return <ActivityIndicator size="large" color={theme.colors.primary} />;
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+        );
     }
 
     return (
@@ -317,10 +357,10 @@ const AccountPage: React.FC = () => {
             {(!userData.isVerified && !userData.certification_img) && (
                 <View style={styles.certificationSection}>
                     <View style={styles.sectionHeader}>
-                            <MaterialIcons name="security" size={28} color={theme.colors.secondary} />
+                        <MaterialIcons name="security" size={28} color={theme.colors.secondary} />
                         <Text style={styles.sectionTitle}>Certificare Necesară</Text>
                     </View>
-                    
+
                     <Text style={styles.certificationDescription}>
                         Pentru a te putea oferi voluntar, trebuie să demonstrezi că ai cunoștințele necesare de prim ajutor. Încarcă un certificat valid emis de o organizație recunoscută.
                     </Text>
@@ -345,7 +385,7 @@ const AccountPage: React.FC = () => {
                         <MaterialIcons name="schedule" size={28} color={theme.colors.secondary} />
                         <Text style={styles.pendingTitle}>Verificare în curs</Text>
                     </View>
-                    
+
                     <Text style={styles.pendingDescription}>
                         Certificatul tău a fost primit! Așteptăm confirmarea de la administratorii noștri. Vei fi notificat când va fi aprobat.
                     </Text>
