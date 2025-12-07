@@ -106,7 +106,7 @@ const stylesBottom = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 6,
-    paddingBottom: 10,
+    paddingBottom: 20,
     elevation: 6,
     height: 50,
   },
