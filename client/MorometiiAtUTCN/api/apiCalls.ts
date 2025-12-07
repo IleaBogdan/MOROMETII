@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 
-export const API_BASE = "http://192.168.35.203:5024";
+export const API_BASE = "http://192.168.43.214:5024";
 
 interface LoginResponse {
   EmCount: number;
@@ -43,10 +43,10 @@ export async function handleSignIn(
     if (error.name === "AbortError") {
       Alert.alert("Timeout", "Serverul nu răspunde.");
     } else {
-      //   Alert.alert(
-      //     "Eroare de Rețea",
-      //     `Nu se poate conecta la server.\n\nIP Server: ${API_BASE}\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni\n\nEroare: ${error.message}`
-      //   );
+      Alert.alert(
+        "Eroare de Rețea",
+        `Nu se poate conecta la server.\n\nIP Server: ${API_BASE}\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni\n\nEroare: ${error.message}`
+      );
     }
     return null;
   } finally {
