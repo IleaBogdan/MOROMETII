@@ -79,35 +79,46 @@ const HomePage: React.FC = () => {
     useFocusEffect(
         useCallback(() => {
             const initializeData = async () => {
-                if (isFetchingRef.current) return;
-
-                isFetchingRef.current = true;
-
-                try {
-                    if (!isInitialized) {
-                        await loadUserData();
-                        setIsInitialized(true);
-                    }
-
-                    const emergencyIds = await handleRefreshUrgencies();
-                    if (emergencyIds && emergencyIds.length > 0) {
-                        await fetchAllApplicants(emergencyIds);
-                    }
-                } finally {
-                    isFetchingRef.current = false;
+                if (!isInitialized) {
+                    await loadUserData();
+                    setIsInitialized(true);
                 }
+
+                // Call the consolidated function on screen focus
+                await refreshDataAndCheckStatus();
             };
 
             initializeData();
 
-
+            // Cleanup isFetchingRef on blur if it's still true
             return () => {
                 isFetchingRef.current = false;
             };
         }, [isInitialized])
     );
 
+    const refreshDataAndCheckStatus = async (): Promise<void> => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
 
+        try {
+            const emergencyIds = await handleRefreshUrgencies();
+            if (emergencyIds && emergencyIds.length > 0) {
+                await fetchAllApplicants(emergencyIds);
+            }
+
+            setActiveEmergencyId(prevActiveId => {
+                if (prevActiveId !== null && emergencyIds.indexOf(prevActiveId) === -1) {
+                    console.log(`Clearing activeEmergencyId: ${prevActiveId}. Emergency no longer exists.`);
+                    Alert.alert("Notificare", "Intervenția activă a fost finalizată de dispecerat.");
+                    return null; // Clear the block
+                }
+                return prevActiveId;
+            });
+        } finally {
+            isFetchingRef.current = false;
+        }
+    };
 
     const fetchAllApplicants = async (emergencyIds: number[]) => {
 
@@ -423,7 +434,7 @@ const HomePage: React.FC = () => {
                         refreshControl={
                             <RefreshControl
                                 refreshing={isRefreshing}
-                                onRefresh={handleRefreshUrgencies}
+                                onRefresh={refreshDataAndCheckStatus}
                                 tintColor={theme.colors.primary}
                                 colors={[theme.colors.primary]}
                             />
