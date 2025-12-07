@@ -31,7 +31,6 @@ const EmergencyDashboard = () => {
     const theme = useTheme();
 
     const [urgencies, setUrgencies] = useState<Emergency[]>([]);
-    const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
