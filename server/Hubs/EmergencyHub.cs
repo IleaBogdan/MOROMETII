@@ -40,7 +40,8 @@ namespace server.Hubs
                 var emergency = new EmergencyObject
                 {
                     Id = reader.GetInt32(reader.GetOrdinal("ID")),
-                    Location = reader.GetString(reader.GetOrdinal("Location")),
+                    Location_X = (float)reader.GetDouble(reader.GetOrdinal("Location_X")),
+                    Location_Y = (float)reader.GetDouble(reader.GetOrdinal("Location_Y")),
                     Level = reader.GetInt32(reader.GetOrdinal("Lvl_Emergency")),
                     Name = reader.GetString(reader.GetOrdinal("Name")),
                     Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? string.Empty : reader.GetString(reader.GetOrdinal("Description"))

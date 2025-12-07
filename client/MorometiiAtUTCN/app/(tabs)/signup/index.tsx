@@ -3,7 +3,7 @@ import { useDynamicTheme } from "@/theme/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RelativePathString, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 const theme = useDynamicTheme();
 
@@ -21,33 +21,49 @@ const SignUpPage: React.FC = () => {
 
     const handleSignUp = async () => {
         if (password !== confirmpassword) {
-            Alert.alert("Passwords do not match!");
-            return null;
+            Alert.alert("Eroare", "Passwords do not match!");
+            return;
         }
+
         const result = await _handleSignUp(setLoading, username, email, password, router);
-        if (result && result.data && result.data.IsValid && result.response.ok) {
-            await AsyncStorage.multiSet([
-                ['username', result.data.Username || ''],
-                ['email', email.trim()],
-                ['password', password.trim()],
-                ['isVerified', result.data.isVerified ? 'true' : 'false'],
-                ['certification_img', 'false'],
-                ['reputation', '0'],
-                ['events', '0'],
-                ['id', result.data.Id.toString()],
-                ['isAdmin', 'false'],
-            ]);
-            router.push("/(tabs)/acasa" as RelativePathString);
+
+        if (result && result.data && result.data.IsValid) {
+            try {
+                await AsyncStorage.multiSet([
+                    ['username', result.data.Username || ''],
+                    ['email', email.trim()],
+                    ['password', password.trim()],
+                    ['isVerified', result.data.isVerified ? 'true' : 'false'],
+                    ['certification_img', result.data.isImage ? 'true' : 'false'],
+                    ['reputation', (result.data.reputation || 0).toString()],
+                    ['events', (result.data.EmCount || 0).toString()],
+                    ['id', result.data.Id.toString()],
+                    ['isAdmin', result.data.isAdmin ? 'true' : 'false'],
+                ]);
+
+                Alert.alert(
+                    "Succes!",
+                    "Contul a fost creat cu succes!",
+                    [
+                        {
+                            text: "OK",
+                            onPress: () => router.push("/(tabs)/acasa" as RelativePathString),
+                        },
+                    ]
+                );
+            } catch (storageError) {
+                console.error("AsyncStorage error:", storageError);
+                Alert.alert("Eroare", "Contul a fost creat dar nu s-au putut salva datele local");
+            }
         } else {
-            Alert.alert(
-                "Eroare de SignUp!",
-                "Nu s-a putut face contul"
-            );
         }
     };
 
     return (
         <View style={styles.container}>
+            <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+
+
             <Text style={styles.title}>Înregistrare</Text>
 
             <TextInput
@@ -164,9 +180,18 @@ const styles = StyleSheet.create({
         backgroundColor: "#ccc",
     },
     buttonText: {
-        color: theme.colors.onBackground,
+        color: theme.colors.onPrimary,
         fontSize: 18,
         fontWeight: "bold",
+    },
+    logo: {
+        width: 250,
+        height: 250,
+        marginBottom: 20,
+        position: 'absolute',
+        top: 28,
+        zIndex: 10,
+        alignSelf: 'center',
     },
 });
 
