@@ -333,7 +333,7 @@ const AccountPage: React.FC = () => {
                     <Text style={styles.profileEmail}>{userData.email}</Text>
                     {userData.isVerified && (
                         <View style={styles.certificationBadgeContainer}>
-                            <MaterialIcons name="verified" size={16} color={theme.colors.onTertiary} />
+                            <MaterialIcons name="verified" size={16} color={theme.colors.background} />
                             <Text style={styles.certificationBadgeText}>Certificat verificat</Text>
                         </View>
                     )}
@@ -349,7 +349,7 @@ const AccountPage: React.FC = () => {
                 </View>
                 <View style={styles.statCard}>
                     <MaterialIcons name="event-available" size={24} color={theme.colors.primary} />
-                    <Text style={styles.statLabel}>evenimente</Text>
+                    <Text style={styles.statLabel}>Evenimente</Text>
                     <Text style={styles.statValue}>{userData.events || 0}</Text>
                 </View>
             </View>
@@ -512,14 +512,14 @@ const styles = StyleSheet.create({
         gap: 6,
         paddingVertical: 6,
         paddingHorizontal: 10,
-        backgroundColor: theme.colors.onTertiaryContainer,
-        borderRadius: 8,
+        backgroundColor: "#90EE90",
+        borderRadius: 12,
         alignSelf: 'flex-start',
     },
     certificationBadgeText: {
         fontSize: 12,
         fontWeight: '600',
-        color: theme.colors.onTertiary,
+        color: theme.colors.background,
     },
 
     /* Stats Section */
@@ -647,16 +647,18 @@ const styles = StyleSheet.create({
     /* Action Section */
     actionSection: {
         marginBottom: 24,
+        width: '100%',
+        alignItems: 'center',
     },
     logoutButton: {
         backgroundColor: theme.colors.error,
         borderRadius: 12,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
+        gap: 6,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -664,7 +666,7 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     logoutText: {
-        fontSize: 16,
+        fontSize: 12,
         fontWeight: '700',
         color: theme.colors.onTertiary,
     },

@@ -37,6 +37,7 @@ export default function Index() {
         };
 
         checkAuth();
+
     }, []);
     if (isChecking) {
         return (

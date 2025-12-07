@@ -25,7 +25,7 @@ const SignUpPage: React.FC = () => {
             return;
         }
 
-        const result = await _handleSignUp(setLoading, username, email, password, router);
+        const result = await _handleSignUp(setLoading, username, email, password);
 
         if (result && result.data && result.data.IsValid) {
             try {
@@ -40,6 +40,7 @@ const SignUpPage: React.FC = () => {
                     ['id', result.data.Id.toString()],
                     ['isAdmin', result.data.isAdmin ? 'true' : 'false'],
                 ]);
+
 
                 Alert.alert(
                     "Succes!",
@@ -56,6 +57,7 @@ const SignUpPage: React.FC = () => {
                 Alert.alert("Eroare", "Contul a fost creat dar nu s-au putut salva datele local");
             }
         } else {
+
         }
     };
 
