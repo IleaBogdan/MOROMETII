@@ -105,6 +105,40 @@ namespace server.Controllers
             public string Error { get; set; }
             public string Names { get; set; } // they are splited via a ,
         }
+        [HttpGet]
+        [Route("GetApplicants")]
+        [ProducesResponseType(typeof(ApplyResponse), StatusCodes.Status200OK)]
+        public IActionResult GetApplicants(int EmergencyId)
+        {
+            if (EmergencyId <= 0 || EmergencyId==null)
+            {
+                return Ok(new ApplyResponse
+                {
+                    Error = "Wrong Emergency Id",
+                    Names = null
+                });
+            }
+            using var connection = new SqlConnection(__connectionString);
+            connection.Open();
+
+            string sql = @"SELECT ApplyersUsernames FROM Emergency WHERE ID=@Id";
+            using var command=new SqlCommand(sql,connection);
+            command.Parameters.AddWithValue("@Id", EmergencyId);
+
+            using var reader=command.ExecuteReader();
+            if (!reader.Read())
+            {
+                return Ok(new ApplyResponse { Error="Something failed",Names=null});
+            }
+            int usernameColumnIndex = reader.GetOrdinal("ApplyersUsernames");
+            string usernames = reader.IsDBNull(usernameColumnIndex)
+                ? string.Empty  // or null, depending on your needs
+                : reader.GetString(usernameColumnIndex);
+            return Ok(new ApplyResponse { 
+                Error=null,
+                Names=usernames
+            });
+        }
         [HttpPost]
         [Route("ApplyFor")]
         [ProducesResponseType(typeof(ApplyResponse), StatusCodes.Status200OK)]
