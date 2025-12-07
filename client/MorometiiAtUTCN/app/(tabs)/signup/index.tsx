@@ -65,7 +65,7 @@ const SignUpPage: React.FC = () => {
         <View style={styles.container}>
             <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
 
-
+            <View style={{ height: 150 }} />
             <Text style={styles.title}>Înregistrare</Text>
 
             <TextInput
