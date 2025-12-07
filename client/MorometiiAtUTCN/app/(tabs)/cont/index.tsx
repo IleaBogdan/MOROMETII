@@ -89,7 +89,6 @@ const AccountPage: React.FC = () => {
     };
 
     const loadUserData = async () => {
-        // Prevent multiple simultaneous calls
         if (isFetchingRef.current) {
             return;
         }
@@ -97,16 +96,16 @@ const AccountPage: React.FC = () => {
         isFetchingRef.current = true;
 
         try {
-            const email = await AsyncStorage.getItem("email");
+            const username = await AsyncStorage.getItem("username");
             const password = await AsyncStorage.getItem("password");
 
-            if (!email || !password) {
+            if (!username || !password) {
                 console.warn("No credentials found in storage");
                 await loadCachedUserData();
                 return;
             }
 
-            const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodeURIComponent(email)}&Password=${encodeURIComponent(password)}`;
+            const url = `${API_BASE}/api/UserValidator/CheckLogin?Name=${username}&Password=${password}`;
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -120,7 +119,6 @@ const AccountPage: React.FC = () => {
                 clearTimeout(timeoutId);
 
                 if (!response.ok) {
-                    // Log the error but don't show alert unless user manually refreshed
                     console.warn(`HTTP error! status: ${response.status}`);
 
                     if (isRefreshing) {
@@ -139,7 +137,6 @@ const AccountPage: React.FC = () => {
                 const result = await response.json();
 
                 if (result) {
-                    // Update AsyncStorage with fresh data
                     await AsyncStorage.multiSet([
                         ['username', result.username || ''],
                         ['isVerified', result.isVerified ? 'true' : 'false'],
@@ -150,7 +147,6 @@ const AccountPage: React.FC = () => {
                         ['isAdmin', result.isAdmin ? 'true' : 'false'],
                     ]);
 
-                    // Update UI with fresh data
                     await loadCachedUserData();
                 }
             } catch (fetchError: any) {
@@ -162,7 +158,6 @@ const AccountPage: React.FC = () => {
                     console.warn("Fetch error:", fetchError.message || fetchError);
                 }
 
-                // Only show error if user manually refreshed
                 if (isRefreshing) {
                     Alert.alert(
                         "Eroare de conectare",

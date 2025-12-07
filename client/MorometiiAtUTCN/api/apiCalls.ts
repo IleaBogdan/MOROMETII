@@ -9,7 +9,7 @@ interface LoginResponse {
   Id: number;
   IsValid: boolean;
   isVerified: boolean;
-  Username: string | null;
+  Email: string | null;
   isImage: boolean;
   reputation: number | null;
   isAdmin: boolean;
@@ -17,14 +17,14 @@ interface LoginResponse {
 
 export async function handleSignIn(
   setLoading: any,
-  email: string,
+  username: string,
   password: string
 ) {
   setLoading(true);
   try {
-    const encodedEmail = email.trim();
+    const encodedUsername = username.trim();
     const encodedPassword = password.trim();
-    const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodedEmail}&Password=${encodedPassword}`;
+    const url = `${API_BASE}/api/UserValidator/CheckLogin?Name=${encodedUsername}&Password=${encodedPassword}`;
     console.log("🔵 Attempting connection to:", url);
 
     const controller = new AbortController();
@@ -44,10 +44,6 @@ export async function handleSignIn(
     if (error.name === "AbortError") {
       Alert.alert("Timeout", "Serverul nu răspunde.");
     } else {
-      //   Alert.alert(
-      //     "Eroare de Rețea",
-      //     `Nu se poate conecta la server.\n\nIP Server: ${API_BASE}\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni\n\nEroare: ${error.message}`
-      //   );
     }
     return null;
   } finally {
@@ -104,6 +100,7 @@ export async function _handleSignUp(
         IsValid: data.isValid,
         Id: data.id,
         Username: data.username,
+        Email: data.email,
         Error: data.error,
         isVerified: data.isVerified,
         isImage: data.isImage,
@@ -131,11 +128,11 @@ export async function _handleSignUp(
   }
 }
 
-export async function checkLogin(email: string, password: string) {
+export async function checkLogin(username: string, password: string) {
   try {
-    const encodedEmail = email.trim();
+    const encodedUsername = username.trim();
     const encodedPassword = password.trim();
-    const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodedEmail}&Password=${encodedPassword}`;
+    const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodedUsername}&Password=${encodedPassword}`;
     console.log("🔵 Checking login credentials:", url);
 
     const controller = new AbortController();
@@ -158,8 +155,8 @@ export async function checkLogin(email: string, password: string) {
 
     if (data.IsValid) {
       await AsyncStorage.setItem("id", data.Id.toString());
-      await AsyncStorage.setItem("username", data.Username || "");
-      await AsyncStorage.setItem("email", email);
+      await AsyncStorage.setItem("username", username);
+      await AsyncStorage.setItem("email", data.Email || "");
       await AsyncStorage.setItem("password", password);
       await AsyncStorage.setItem("isVerified", data.isVerified.toString());
       await AsyncStorage.setItem("isAdmin", data.isAdmin ? "true" : "false");

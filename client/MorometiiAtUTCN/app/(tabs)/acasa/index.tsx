@@ -274,6 +274,7 @@ const HomePage: React.FC = () => {
 
 
     const loadUserData = async () => {
+
         try {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
@@ -297,6 +298,7 @@ const HomePage: React.FC = () => {
             console.error("Error loading user data:", error);
             Alert.alert("Eroare", "Nu s-au putut încărca datele utilizatorului");
         }
+        console.log(userData?.is_validated);
     };
 
 
@@ -381,271 +383,284 @@ const HomePage: React.FC = () => {
         return selectedUrgency && userData ? isUserIntervening(interveningEmergencies, selectedUrgency.id, userData.username) : false;
     }, [selectedUrgency, userData, interveningEmergencies]);
 
+    const isVerified = userData?.certification_mode && userData.is_validated;
+    const isInProcess = userData?.certification_mode && !userData.is_validated;
 
     return (
         <View style={styles.container}>
-            {!userData || (!userData.is_validated) && (
-                <View style={styles.certificationInfo}>
-                    <Text style={styles.infoTitle}>Înainte să începem...</Text>
-                    <Text style={styles.infoDescription}>
-                        {"\n"}Platforma noastră cere utilizatorilor un document prin care aceștia să demonstreze că dețin cunoștiințele necesare pentru a acorda prim ajutor!{"\n\n"}
-                    </Text>
-                    <Text style={styles.infoDescription}>
-                        Află mai multe în pagina 'Cont'!
-                    </Text>
-                </View>
-            )}
-            {userData != null && (userData.is_validated) && (
-                <ScrollView style={styles.holdsContainer}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={handleRefreshUrgencies}
-                            tintColor={theme.colors.primary}
-                            colors={[theme.colors.primary]}
-                        />
-                    }>
-                    {/* Map + list of urgencies */}
-                    <View style={styles.mapWrapper}>
-                        {/* map area */}
-                        {closeUrgencies.length > 0 ? (
-                            hasMapsModule && MapView ? (
-                                <MapView
-                                    style={styles.map}
-                                    initialRegion={{
-                                        latitude: closeUrgencies[0].location_X,
-                                        longitude: closeUrgencies[0].location_Y,
-                                        latitudeDelta: 0.05,
-                                        longitudeDelta: 0.05,
-                                    }}
-                                >
-                                    {closeUrgencies.map((u, idx) => (
-                                        Marker ? (
-
-                                            <Marker
-                                                key={idx}
-                                                coordinate={{
-                                                    latitude: u.location_X,
-                                                    longitude: u.location_Y,
-                                                }}
-                                                title={u.name}
-                                                description={u.description}
-                                            />
-                                        ) : null
-                                    ))}
-                                </MapView>
-                            ) : hasWebView && WebView ? (
-                                <WebView
-                                    originWhitelist={["*"]}
-                                    source={{ html: makeLeafletHtml(closeUrgencies) }}
-                                    style={styles.map}
-                                />
-                            ) : (
-                                <View style={styles.mapUnavailable}>
-                                    <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune. </Text>
-                                </View>
-                            )
-                        ) : (
-                            <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs.</Text>
-                        )}
+            {!userData || isInProcess && (
+                <ScrollView style={styles.holdsContainer} refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={loadUserData}
+                        tintColor={theme.colors.primary}
+                        colors={[theme.colors.primary]}
+                    />
+                }>
+                    <View style={styles.certificationInfo}>
+                        <Text style={styles.infoTitle}>Înainte să începem...</Text>
+                        <Text style={styles.infoDescription}>
+                            {"\n"}Platforma noastră cere utilizatorilor un document prin care aceștia să demonstreze că dețin cunoștiințele necesare pentru a acorda prim ajutor!{"\n\n"}
+                        </Text>
+                        <Text style={styles.infoDescription}>
+                            Află mai multe în pagina 'Cont'!
+                        </Text>
                     </View>
-                    {/* <View style={{ marginBottom: 10 }}>
+                </ScrollView>
+            )
+            }
+            {
+                userData != null && isVerified && (
+                    <ScrollView style={styles.holdsContainer}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={handleRefreshUrgencies}
+                                tintColor={theme.colors.primary}
+                                colors={[theme.colors.primary]}
+                            />
+                        }>
+                        {/* Map + list of urgencies */}
+                        <View style={styles.mapWrapper}>
+                            {/* map area */}
+                            {closeUrgencies.length > 0 ? (
+                                hasMapsModule && MapView ? (
+                                    <MapView
+                                        style={styles.map}
+                                        initialRegion={{
+                                            latitude: closeUrgencies[0].location_X,
+                                            longitude: closeUrgencies[0].location_Y,
+                                            latitudeDelta: 0.05,
+                                            longitudeDelta: 0.05,
+                                        }}
+                                    >
+                                        {closeUrgencies.map((u, idx) => (
+                                            Marker ? (
+
+                                                <Marker
+                                                    key={idx}
+                                                    coordinate={{
+                                                        latitude: u.location_X,
+                                                        longitude: u.location_Y,
+                                                    }}
+                                                    title={u.name}
+                                                    description={u.description}
+                                                />
+                                            ) : null
+                                        ))}
+                                    </MapView>
+                                ) : hasWebView && WebView ? (
+                                    <WebView
+                                        originWhitelist={["*"]}
+                                        source={{ html: makeLeafletHtml(closeUrgencies) }}
+                                        style={styles.map}
+                                    />
+                                ) : (
+                                    <View style={styles.mapUnavailable}>
+                                        <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune. </Text>
+                                    </View>
+                                )
+                            ) : (
+                                <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs.</Text>
+                            )}
+                        </View>
+                        {/* <View style={{ marginBottom: 10 }}>
                         <Text style={styles.title}>Urgențe Apropiate</Text>
                         <Text style={{ color: theme.colors.onBackground, fontSize: 13, opacity: 0.7 }}>Glisati in jos pentru a actualiza urgentele</Text>
                     </View>
                     {/* cards list below map */}
-                    {isRefreshing ?
-                        (<ActivityIndicator size={50} color={theme.colors.primary} style={{ marginTop: 50 }} />
-                        ) : (
-                            <View style={styles.urgencyList}>
-                                {closeUrgencies.map((u, i) => {
-                                    const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y) : null;
-                                    const getSeverityColor = (level: number) => {
-                                        if (level >= 8) return theme.colors.errorContainer;
-                                        if (level >= 5) return theme.colors.secondary;
-                                        return theme.colors.tertiary;
-                                    };
-                                    const severityColor = getSeverityColor(u.level);
-                                    const isIntervening = userData ? isUserIntervening(interveningEmergencies, u.id, userData.username) : false;
-                                    const interveners = interveningEmergencies[u.id] || [];
-                                    return (
-                                        <TouchableOpacity
-                                            key={i}
-                                            disabled={activeEmergencyId !== null && activeEmergencyId !== u.id}
-                                            style={[
-                                                styles.urgencyCard,
-                                                isIntervening && { backgroundColor: theme.colors.primaryContainer },
-                                                (activeEmergencyId !== null && activeEmergencyId !== u.id) && { opacity: 0.45 }
-                                            ]}
-                                            onPress={() => {
-                                                // prevent click if another emergency is active
-                                                if (activeEmergencyId !== null && activeEmergencyId !== u.id) return;
+                        {isRefreshing ?
+                            (<ActivityIndicator size={50} color={theme.colors.primary} style={{ marginTop: 50 }} />
+                            ) : (
+                                <View style={styles.urgencyList}>
+                                    {closeUrgencies.map((u, i) => {
+                                        const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y) : null;
+                                        const getSeverityColor = (level: number) => {
+                                            if (level >= 8) return theme.colors.errorContainer;
+                                            if (level >= 5) return theme.colors.secondary;
+                                            return theme.colors.tertiary;
+                                        };
+                                        const severityColor = getSeverityColor(u.level);
+                                        const isIntervening = userData ? isUserIntervening(interveningEmergencies, u.id, userData.username) : false;
+                                        const interveners = interveningEmergencies[u.id] || [];
+                                        return (
+                                            <TouchableOpacity
+                                                key={i}
+                                                disabled={activeEmergencyId !== null && activeEmergencyId !== u.id}
+                                                style={[
+                                                    styles.urgencyCard,
+                                                    isIntervening && { backgroundColor: theme.colors.primaryContainer },
+                                                    (activeEmergencyId !== null && activeEmergencyId !== u.id) && { opacity: 0.45 }
+                                                ]}
+                                                onPress={() => {
+                                                    // prevent click if another emergency is active
+                                                    if (activeEmergencyId !== null && activeEmergencyId !== u.id) return;
 
-                                                const urgencyDetails: Urgenta = {
-                                                    name: u.name,
-                                                    description: u.description,
-                                                    location: [u.location_X.toString(), u.location_Y.toString()],
-                                                    score: u.level,
-                                                    count: interveners.length,
-                                                    id: u.id,
-                                                }
-                                                setSelectedUrgency(urgencyDetails);
-                                                setDetailsVisible(true);
-                                            }}
-                                        >
-                                            {/* Severity badge */}
-                                            <View style={[styles.severityBadge, { backgroundColor: severityColor }]}>
-                                                <MaterialIcons name="priority-high" size={16} color={theme.colors.background} />
-                                                <Text style={styles.severityText}>{u.level}/5</Text>
-                                            </View>
-
-                                            {/* Card content */}
-                                            <View style={styles.urgencyCardContent}>
-                                                <View style={styles.urgencyTitleRow}>
-                                                    <Text style={styles.urgencyTitle}>{u.name}</Text>
-                                                </View>
-
-                                                {u.description ? (
-                                                    <Text style={styles.urgencyDescription} numberOfLines={2}>{u.description}</Text>
-                                                ) : null}
-
-                                                <View style={styles.urgencyMetas}>
-                                                    <View style={styles.metaItem}>
-                                                        <MaterialIcons name="place" size={16} color={theme.colors.secondary} />
-                                                        <Text style={styles.metaText}>{dist != null ? `${dist.toFixed(2)} km` : '—'}</Text>
-                                                    </View>
-                                                    <View style={styles.metaDivider} />
-                                                    <View style={styles.metaItem}>
-                                                        <MaterialIcons name="group" size={16} color={theme.colors.primary} />
-                                                        <Text style={styles.metaText}>{interveners.length}</Text>
-                                                    </View>
-                                                </View>
-                                            </View>
-
-                                            {/* Arrow indicator */}
-                                            <View style={styles.cardArrow}>
-                                                <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
-                                            </View>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        )}
-                    {/* Details modal for selected urgency */}
-                    <Modal visible={detailsVisible} transparent animationType="fade" onRequestClose={() => setDetailsVisible(false)}>
-                        <View style={styles.modalFullScreen}>
-                            {selectedUrgency ? (
-                                <>
-                                    {/* Full-screen map background */}
-                                    <View style={styles.mapFullScreen}>
-                                        {hasMapsModule && MapView ? (
-                                            <MapView
-                                                style={styles.map}
-                                                initialRegion={{
-                                                    latitude: parseCoord(selectedUrgency.location[0]),
-                                                    longitude: parseCoord(selectedUrgency.location[1]),
-                                                    latitudeDelta: 0.02,
-                                                    longitudeDelta: 0.02,
+                                                    const urgencyDetails: Urgenta = {
+                                                        name: u.name,
+                                                        description: u.description,
+                                                        location: [u.location_X.toString(), u.location_Y.toString()],
+                                                        score: u.level,
+                                                        count: interveners.length,
+                                                        id: u.id,
+                                                    }
+                                                    setSelectedUrgency(urgencyDetails);
+                                                    setDetailsVisible(true);
                                                 }}
                                             >
-                                                {Marker ? (
-                                                    <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
-                                                ) : null}
-                                            </MapView>
-                                        ) : hasWebView && WebView ? (
-                                            <WebView
-                                                originWhitelist={["*"]}
-                                                source={{
-                                                    html: makeLeafletHtml([{
-                                                        name: selectedUrgency.name,
-                                                        id: selectedUrgency.id,
-                                                        description: selectedUrgency.description,
-                                                        level: selectedUrgency.score,
-                                                        location_X: parseCoord(selectedUrgency.location[0]),
-                                                        location_Y: parseCoord(selectedUrgency.location[1]),
-                                                    }])
-                                                }}
-                                                style={styles.map}
-                                            />
-                                        ) : (
-                                            <View style={styles.mapUnavailable}>
-                                                <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
-                                            </View>
-                                        )}
-                                    </View>
+                                                {/* Severity badge */}
+                                                <View style={[styles.severityBadge, { backgroundColor: severityColor }]}>
+                                                    <MaterialIcons name="priority-high" size={16} color={theme.colors.background} />
+                                                    <Text style={styles.severityText}>{u.level}/5</Text>
+                                                </View>
 
-                                    {/* Close button (top-left) */}
-                                    <TouchableOpacity
-                                        style={styles.closeButtonOverlay}
-                                        onPress={() => setDetailsVisible(false)}
-                                    >
-                                        <MaterialIcons name="arrow-back" size={28} color="white" />
-                                    </TouchableOpacity>
+                                                {/* Card content */}
+                                                <View style={styles.urgencyCardContent}>
+                                                    <View style={styles.urgencyTitleRow}>
+                                                        <Text style={styles.urgencyTitle}>{u.name}</Text>
+                                                    </View>
 
-                                    {/* Bottom card with details */}
-                                    <View style={styles.detailsCard}>
-                                        <ScrollView showsVerticalScrollIndicator={false}>
-                                            {/* Severity badge */}
+                                                    {u.description ? (
+                                                        <Text style={styles.urgencyDescription} numberOfLines={2}>{u.description}</Text>
+                                                    ) : null}
 
-                                            {/* Title */}
-                                            <Text style={styles.cardTitle}>{selectedUrgency.name}</Text>
-
-                                            {/* Description */}
-                                            <Text style={styles.cardDescription}>{selectedUrgency.description}</Text>
-
-                                            {/* Info stats */}
-                                            <View style={styles.infoStats}>
-                                                <View style={styles.infoStatItem}>
-                                                    <MaterialIcons name="priority-high" size={20} color={theme.colors.errorContainer} />
-                                                    <View style={styles.infoStatText}>
-                                                        <Text style={styles.infoStatLabel}>Prioritate</Text>
-                                                        <Text style={styles.infoStatValue}>{selectedUrgency.score}/5</Text>
+                                                    <View style={styles.urgencyMetas}>
+                                                        <View style={styles.metaItem}>
+                                                            <MaterialIcons name="place" size={16} color={theme.colors.secondary} />
+                                                            <Text style={styles.metaText}>{dist != null ? `${dist.toFixed(2)} km` : '—'}</Text>
+                                                        </View>
+                                                        <View style={styles.metaDivider} />
+                                                        <View style={styles.metaItem}>
+                                                            <MaterialIcons name="group" size={16} color={theme.colors.primary} />
+                                                            <Text style={styles.metaText}>{interveners.length}</Text>
+                                                        </View>
                                                     </View>
                                                 </View>
 
-                                                {userLocation ? (
-                                                    <View style={styles.infoStatItem}>
-                                                        <MaterialIcons name="place" size={20} color={theme.colors.secondary} />
-                                                        <View style={styles.infoStatText}>
-                                                            <Text style={styles.infoStatLabel}>Distanță</Text>
-                                                            <Text style={styles.infoStatValue}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(2)} km</Text>
-                                                        </View>
-                                                    </View>
-                                                ) : null}
-                                            </View>
-
-                                            {/* Action buttons */}
-                                            <View style={styles.actionButtonsCard}>
-                                                <TouchableOpacity
-                                                    style={styles.primaryActionButton}
-                                                    onPress={() => handleIntervene(selectedUrgency)}
-                                                >
-                                                    <MaterialIcons name="directions" size={20} color={theme.colors.onPrimary} />
-                                                    <Text style={styles.primaryActionText}>Intervine</Text>
-                                                </TouchableOpacity>
-
-                                                <TouchableOpacity
-                                                    style={styles.secondaryActionButton}
-                                                    onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}
-                                                >
-                                                    <MaterialIcons name="map" size={20} color={theme.colors.primary} />
-                                                    <Text style={styles.secondaryActionText}>Google Maps</Text>
-                                                </TouchableOpacity>
-                                            </View>
-
-                                            <View style={{ height: 20 }} />
-                                        </ScrollView>
-                                    </View>
-                                </>
-                            ) : (
-                                <View style={styles.loadingContainer}>
-                                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                                                {/* Arrow indicator */}
+                                                <View style={styles.cardArrow}>
+                                                    <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                 </View>
                             )}
-                        </View>
-                    </Modal>
-                </ScrollView >
-            )
+                        {/* Details modal for selected urgency */}
+                        <Modal visible={detailsVisible} transparent animationType="fade" onRequestClose={() => setDetailsVisible(false)}>
+                            <View style={styles.modalFullScreen}>
+                                {selectedUrgency ? (
+                                    <>
+                                        {/* Full-screen map background */}
+                                        <View style={styles.mapFullScreen}>
+                                            {hasMapsModule && MapView ? (
+                                                <MapView
+                                                    style={styles.map}
+                                                    initialRegion={{
+                                                        latitude: parseCoord(selectedUrgency.location[0]),
+                                                        longitude: parseCoord(selectedUrgency.location[1]),
+                                                        latitudeDelta: 0.02,
+                                                        longitudeDelta: 0.02,
+                                                    }}
+                                                >
+                                                    {Marker ? (
+                                                        <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
+                                                    ) : null}
+                                                </MapView>
+                                            ) : hasWebView && WebView ? (
+                                                <WebView
+                                                    originWhitelist={["*"]}
+                                                    source={{
+                                                        html: makeLeafletHtml([{
+                                                            name: selectedUrgency.name,
+                                                            id: selectedUrgency.id,
+                                                            description: selectedUrgency.description,
+                                                            level: selectedUrgency.score,
+                                                            location_X: parseCoord(selectedUrgency.location[0]),
+                                                            location_Y: parseCoord(selectedUrgency.location[1]),
+                                                        }])
+                                                    }}
+                                                    style={styles.map}
+                                                />
+                                            ) : (
+                                                <View style={styles.mapUnavailable}>
+                                                    <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        {/* Close button (top-left) */}
+                                        <TouchableOpacity
+                                            style={styles.closeButtonOverlay}
+                                            onPress={() => setDetailsVisible(false)}
+                                        >
+                                            <MaterialIcons name="arrow-back" size={28} color="white" />
+                                        </TouchableOpacity>
+
+                                        {/* Bottom card with details */}
+                                        <View style={styles.detailsCard}>
+                                            <ScrollView showsVerticalScrollIndicator={false}>
+                                                {/* Severity badge */}
+
+                                                {/* Title */}
+                                                <Text style={styles.cardTitle}>{selectedUrgency.name}</Text>
+
+                                                {/* Description */}
+                                                <Text style={styles.cardDescription}>{selectedUrgency.description}</Text>
+
+                                                {/* Info stats */}
+                                                <View style={styles.infoStats}>
+                                                    <View style={styles.infoStatItem}>
+                                                        <MaterialIcons name="priority-high" size={20} color={theme.colors.errorContainer} />
+                                                        <View style={styles.infoStatText}>
+                                                            <Text style={styles.infoStatLabel}>Prioritate</Text>
+                                                            <Text style={styles.infoStatValue}>{selectedUrgency.score}/5</Text>
+                                                        </View>
+                                                    </View>
+
+                                                    {userLocation ? (
+                                                        <View style={styles.infoStatItem}>
+                                                            <MaterialIcons name="place" size={20} color={theme.colors.secondary} />
+                                                            <View style={styles.infoStatText}>
+                                                                <Text style={styles.infoStatLabel}>Distanță</Text>
+                                                                <Text style={styles.infoStatValue}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(2)} km</Text>
+                                                            </View>
+                                                        </View>
+                                                    ) : null}
+                                                </View>
+
+                                                {/* Action buttons */}
+                                                <View style={styles.actionButtonsCard}>
+                                                    <TouchableOpacity
+                                                        style={styles.primaryActionButton}
+                                                        onPress={() => handleIntervene(selectedUrgency)}
+                                                    >
+                                                        <MaterialIcons name="directions" size={20} color={theme.colors.onPrimary} />
+                                                        <Text style={styles.primaryActionText}>Intervine</Text>
+                                                    </TouchableOpacity>
+
+                                                    <TouchableOpacity
+                                                        style={styles.secondaryActionButton}
+                                                        onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}
+                                                    >
+                                                        <MaterialIcons name="map" size={20} color={theme.colors.primary} />
+                                                        <Text style={styles.secondaryActionText}>Google Maps</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+
+                                                <View style={{ height: 20 }} />
+                                            </ScrollView>
+                                        </View>
+                                    </>
+                                ) : (
+                                    <View style={styles.loadingContainer}>
+                                        <ActivityIndicator size="large" color={theme.colors.primary} />
+                                    </View>
+                                )}
+                            </View>
+                        </Modal>
+                    </ScrollView >
+                )
             }
         </View >
     );
