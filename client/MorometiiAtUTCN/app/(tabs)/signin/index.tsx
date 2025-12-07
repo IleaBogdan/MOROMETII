@@ -8,7 +8,7 @@ import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, Touchable
 
 const SignInPage: React.FC = () => {
 
-    const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -16,22 +16,24 @@ const SignInPage: React.FC = () => {
     const handleRedirectToSignUp = () => {
         router.push("/(tabs)/signup" as RelativePathString);
     };
+
     const handleLogin = async () => {
         await AsyncStorage.clear();
-        const result = await handleSignIn(setLoading, email, password);
+        const result = await handleSignIn(setLoading, username, password);
 
         if (result && result.data && result?.data.isValid) {
             await AsyncStorage.multiSet([
-                ['username', result.data.username || ''],
-                ['email', email.trim()],
+                ['username', username.trim()],
+                ['email', result.data.email || ''],
                 ['password', password.trim()],
                 ['isVerified', result.data.isVerified ? 'true' : 'false'],
                 ['certification_img', result.data.isImage === true ? 'true' : 'false'],
                 ['reputation', result.data.reputation ? (result.data.reputation).toString() : '0'],
                 ['events', result.data.emCount ? (result.data.emCount).toString() : '0'],
                 ['id', (result.data.id).toString() || '0'],
+                ['isAdmin', result.data.isAdmin === true ? 'true' : 'false'],
             ]);
-            // Replace navigation to ensure tabs/pages remount and receive focus
+
             router.replace("/(tabs)/acasa" as RelativePathString);
         } else if (result?.data.error) {
             Alert.alert(
@@ -50,10 +52,10 @@ const SignInPage: React.FC = () => {
 
             <TextInput
                 style={styles.input}
-                placeholder="Email"
+                placeholder="Username"
                 placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
+                value={username}
+                onChangeText={setUsername}
                 keyboardType="email-address"
                 editable={!loading}
             />
