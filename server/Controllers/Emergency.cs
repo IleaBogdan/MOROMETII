@@ -52,7 +52,7 @@ namespace server.Controllers
                 };
                 emergencies.Add(emergency);
             }
-            var sortedEmergencies = emergencies.OrderBy(e => e.Level).ToList();
+            var sortedEmergencies = emergencies.OrderBy(e => -e.Level).ToList();
             return Ok(new EmergencyResponse { Error = null, Ems = sortedEmergencies, Count = sortedEmergencies.Count });
         }
 
