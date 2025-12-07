@@ -107,7 +107,7 @@ const stylesBottom = StyleSheet.create({
     justifyContent: 'space-around',
     paddingBottom: 20,
     elevation: 6,
-    height: 50,
+    height: 65,
   },
   tabButton: {
     alignItems: 'center',
