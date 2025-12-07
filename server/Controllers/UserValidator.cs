@@ -36,17 +36,16 @@ namespace server.Controllers
             public int Reputation {  get; set; }
             public bool IsImage {  get; set; }
             public bool IsAdmin { get; set; }
-            public string Email { get; set; }
         }
 
         [HttpGet]
         [Route("CheckLogin")]
         [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
-        public IActionResult CheckLogin(string Name,string Password)
+        public IActionResult CheckLogin(string Email, string Password)
         {
             using (var writer = new StreamWriter("log.txt", true))
             {
-                writer.WriteLine($"Login attempt: {Name} and {Password} at {DateTime.Now}");
+                writer.WriteLine($"Login attempt: {Email} and {Password} at {DateTime.Now}");
             }
 
             using var connection = new SqlConnection(__connectionString);
@@ -64,10 +63,10 @@ namespace server.Controllers
                             Reputation,
                             isAdmin
                         FROM Users 
-                        WHERE Name=@Name AND Password=@Password";
+                        WHERE Email=@Email AND Password=@Password";
 
             using var command = new SqlCommand(sql, connection);
-            command.Parameters.AddWithValue("@Name", Name);
+            command.Parameters.AddWithValue("@Email", Email);
             command.Parameters.AddWithValue("@Password", Password);
 
             using var reader = command.ExecuteReader();
@@ -79,7 +78,6 @@ namespace server.Controllers
                 // Get the data from the database
                 int userId = reader.GetInt32(reader.GetOrdinal("Id"));
                 string username = reader.GetString(reader.GetOrdinal("Name"));
-                string email = reader.GetString(reader.GetOrdinal("Email"));
 
                 // Handle isVerified - it might be nullable in the database
                 bool isVerified = false;
@@ -112,7 +110,6 @@ namespace server.Controllers
                     IsValid = true,
                     Id = userId,
                     Username = username,
-                    Email= email,
                     isVerified = isVerified,
                     EmCount = emCount,
                     IsImage= isImage,
@@ -123,9 +120,9 @@ namespace server.Controllers
             else
             {
                 // Check if email exists but password is wrong
-                string emailCheckSql = "SELECT COUNT(*) FROM Users WHERE Name = @Name";
+                string emailCheckSql = "SELECT COUNT(*) FROM Users WHERE Email = @Email";
                 using var emailCheckCommand = new SqlCommand(emailCheckSql, connection);
-                emailCheckCommand.Parameters.AddWithValue("@Name", Name);
+                emailCheckCommand.Parameters.AddWithValue("@Email", Email);
                 int emailExists = (int)emailCheckCommand.ExecuteScalar();
 
                 return Ok(new LoginResponse
@@ -141,10 +138,6 @@ namespace server.Controllers
         [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
         public IActionResult SignUp([FromBody] SignUpRequest req)
         {
-            using (var writer = new StreamWriter("log.txt", true))
-            {
-                writer.WriteLine($"SignUp attempt: {req.Email} and {req.Password}");
-            }
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
@@ -157,10 +150,6 @@ namespace server.Controllers
 
             if (emailCount > 0)
             {
-                using (var writer = new StreamWriter("log.txt", true))
-                {
-                    writer.WriteLine("Email already registered");
-                }
                 return Ok(new LoginResponse
                 {
                     Error = "Email already registered",
@@ -198,10 +187,6 @@ namespace server.Controllers
                     isVerified = reader.GetBoolean(isVerifiedOrdinal);
                 }
 
-                using (var writer = new StreamWriter("log.txt", true))
-                {
-                    writer.WriteLine("E bun");
-                }
                 return Ok(new LoginResponse
                 {
                     Error = null,

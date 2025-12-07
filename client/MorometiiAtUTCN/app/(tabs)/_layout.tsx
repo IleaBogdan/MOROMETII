@@ -6,8 +6,6 @@ import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Appbar } from 'react-native-paper';
 
 import { addToHistory } from '@/history/navigationHistory';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAdmin } from '@/hooks/useAdmin';
 
 export const TopBar: React.FC = () => {
   const pathname = usePathname();
@@ -69,16 +67,19 @@ const stylesHeader = StyleSheet.create({
   },
 });
 
-const BottomBar: React.FC<{ admin: Boolean }> = ({ admin }) => {
+const BottomBar: React.FC = () => {
   const pathname = usePathname();
+
   const tabs = [
-    { key: 'admin', label: 'Raporteaza', icon: 'shield-checkmark' },
+    // { key: 'urgente', label: 'Urgente', icon: 'warning' },
+    // { key: 'cursuri', label: 'Cursuri', icon: 'school' },
+    // { key: 'harta', label: 'Hartă', icon: 'map' },
+    // { key: 'raporteaza', label: 'Raportează', icon: 'alert-circle' },
+    // { key: 'settings', label: 'Setări', icon: 'settings' },
     { key: 'acasa', label: 'Urgențe', icon: 'warning' },
     { key: 'cont', label: 'Cont', icon: 'person' },
   ];
-  if (!admin) {
-    tabs.splice(0, 1);
-  }
+
   return (
     <Appbar style={[stylesBottom.container, { backgroundColor: theme.colors.background }]}>
       {tabs.map((tab) => {
@@ -91,7 +92,7 @@ const BottomBar: React.FC<{ admin: Boolean }> = ({ admin }) => {
             style={stylesBottom.tabButton}
             onPress={() => router.push(`/(tabs)/${tab.key}` as RelativePathString)}
           >
-            <Ionicons name={tab.icon as any} size={30} color={color} />
+            <Ionicons name={tab.icon as any} size={40} color={color} />
             <Text style={[stylesBottom.tabLabel, { color }]}>{tab.label}</Text>
           </TouchableOpacity>
         );
@@ -106,52 +107,38 @@ const stylesBottom = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 6,
-    paddingBottom: 20,
+    paddingBottom: 50,
     elevation: 6,
-    height: 80,
+    height: 120,
   },
   tabButton: {
     alignItems: 'center',
     flex: 1,
   },
   tabLabel: {
-    fontSize: 8,
+    fontSize: 14,
     marginTop: 2,
   },
 });
 
-
 const TabLayout = () => {
   const pathname = usePathname();
-  const isAdmin = useAdmin();
-  const isOnSign = !pathname.includes("/signin") && !pathname.includes("/signup");
-  console.log("everything", isAdmin);
-  if (isAdmin === null) return null;
-
+  const isOnSign = !pathname.includes('/signin') && !pathname.includes('/signup');
   return (
     <Tabs
-      tabBar={() => (!isOnSign ? null : <BottomBar admin={isAdmin} />)}
+      tabBar={() => (!isOnSign ? null : <BottomBar />)}
       screenOptions={{
-        header: () => (null),
+        header: () => (!isOnSign ? null : <TopBar />),
       }}
     >
-      <Tabs.Screen name="cont" options={{ title: "Cont" }} />
-
-      {isAdmin && (
-        <Tabs.Screen
-          name="raporteaza"
-          options={{ title: "Raportează" }}
-        />
-      )}
-
-      {/* Common tabs */}
-      <Tabs.Screen name="urgente" options={{ title: "Urgente" }} />
-      <Tabs.Screen name="cursuri" options={{ title: "Cursuri" }} />
-      <Tabs.Screen name="harta" options={{ title: "Hartă" }} />
-      <Tabs.Screen name="settings" options={{ title: "Setări" }} />
+      <Tabs.Screen name="cont" options={{ title: 'Cont' }} />
+      <Tabs.Screen name="urgente" options={{ title: 'Urgente' }} />
+      <Tabs.Screen name="cursuri" options={{ title: 'Cursuri' }} />
+      <Tabs.Screen name="harta" options={{ title: 'Hartă' }} />
+      <Tabs.Screen name="raporteaza" options={{ title: 'Raportează' }} />
+      <Tabs.Screen name="settings" options={{ title: 'Setări' }} />
     </Tabs>
   );
 };
-
 
 export default TabLayout;

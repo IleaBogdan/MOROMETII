@@ -30,7 +30,10 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
-            string sql = @"SELECT * FROM Emergency";
+            string sql = @"SELECT * FROM Emergency WHERE
+                            Location_X BETWEEN @Location_X-30 AND @Location_X+30
+                            OR
+                            Location_Y BETWEEN @Location_Y-30 AND @Location_Y+30";
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@Location_X", Location_X);
@@ -52,7 +55,7 @@ namespace server.Controllers
                 };
                 emergencies.Add(emergency);
             }
-            var sortedEmergencies = emergencies.OrderBy(e => -e.Level).ToList();
+            var sortedEmergencies = emergencies.OrderBy(e => e.Level).ToList();
             return Ok(new EmergencyResponse { Error = null, Ems = sortedEmergencies, Count = sortedEmergencies.Count });
         }
 

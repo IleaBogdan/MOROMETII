@@ -1,16 +1,16 @@
-import { API_BASE } from "@/api/apiCalls";
-import { theme } from '@/theme/theme';
+import React, { useState, useEffect } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
+import { View, Text, Alert, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Linking, ScrollView, RefreshControl, Platform } from "react-native";
+import { theme } from '@/theme/theme'
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { distanceKm, isUserIntervening, openInMaps, parseCoord, saveInterveningEmergencies } from "./functions";
+import { Button } from "react-native-paper";
+import { API_BASE } from "@/api/apiCalls";
 // Platform-safe map imports
 let MapView: any = null;
 let Marker: any = null;
 let hasMapsModule = false;
 
+// Only attempt to import react-native-maps on native platforms
 if (Platform.OS !== 'web') {
     try {
         const maps = require("react-native-maps");
@@ -22,6 +22,7 @@ if (Platform.OS !== 'web') {
     }
 }
 
+// Platform-safe WebView import
 let WebView: any = null;
 let hasWebView = false;
 
@@ -41,7 +42,7 @@ interface UserData {
     reputation: string;
     events: string;
     emergencyid: number;
-    id: number | null;
+
 }
 
 interface Urgenta {
@@ -49,7 +50,7 @@ interface Urgenta {
     description: string;        // optional
     location: [string, string]; // latx and laty
     score: number; // how urgent is this 
-    count: number;
+    count: number; // number of people that applied already 
     id: number;
 }
 interface databaseUrgency {
@@ -60,205 +61,38 @@ interface databaseUrgency {
     location_X: number;
     location_Y: number;
 }
-interface databaseUrgency {
-    name: string;
-    id: number;
-    description: string;
-    level: number;
-    location_X: number;
-    location_Y: number;
-}
-
 
 
 const HomePage: React.FC = () => {
     const [userData, setUserData] = useState<UserData | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [interveningEmergencies, setInterveningEmergencies] = useState<{ [key: number]: string[] }>({});
-    const [isApplying, setIsApplying] = useState(false);
-
     const [urgencies, setUrgencies] = useState<databaseUrgency[]>([]);
     const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const [selectedUrgency, setSelectedUrgency] = useState<Urgenta | null>(null);
     const [detailsVisible, setDetailsVisible] = useState(false);
-    const [activeEmergencyId, setActiveEmergencyId] = useState<number | null>(null);
-    const [isInitialized, setIsInitialized] = useState(false);
-    const isFetchingRef = useRef(false);
 
-    useFocusEffect(
-        useCallback(() => {
-            const initializeData = async () => {
-                if (isFetchingRef.current) return;
+    useEffect(() => {
+        loadUserData();
+        handleRefreshUrgencies();
+    }, []);
 
-                isFetchingRef.current = true;
+    const parseCoord = (value: string) => {
 
-                try {
-                    if (!isInitialized) {
-                        await loadUserData();
-                        setIsInitialized(true);
-                    }
-
-                    const emergencyIds = await handleRefreshUrgencies();
-                    if (emergencyIds && emergencyIds.length > 0) {
-                        await fetchAllApplicants(emergencyIds);
-                    }
-                } finally {
-                    isFetchingRef.current = false;
-                }
-            };
-
-            initializeData();
-
-
-            return () => {
-                isFetchingRef.current = false;
-            };
-        }, [isInitialized])
-    );
-
-
-
-    const fetchAllApplicants = async (emergencyIds: number[]) => {
-
-        try {
-            const url = API_BASE;
-
-            const promises = emergencyIds.map(async (id) => {
-                try {
-                    const response = await fetch(`${url}/api/UserManager/GetApplicants?EmergencyId=${id}`, {
-                        method: 'GET',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    const data = await response.json();
-                    console.log(data);
-                    return {
-                        id,
-                        names: data.names || ''
-                    };
-                } catch {
-                    return { id, names: '' };
-                }
-            });
-
-            const results = await Promise.all(promises);
-
-            const applicantsMap: { [key: number]: string[] } = {};
-            results.forEach((result) => {
-                const namesList = result.names
-                    ? result.names.split(',').map((n: string) => n.trim()).filter((n: string) => n.length > 0)
-                    : [];
-                applicantsMap[result.id] = namesList;
-            });
-
-            setInterveningEmergencies(applicantsMap);
-            await saveInterveningEmergencies(applicantsMap);
-        } catch (error) {
-            console.error("Error fetching applicants:", error);
+        if (!value) return 0;
+        const parts = value.trim().split(" ");
+        if (parts.length === 1) {
+            return parseFloat(parts[0]);
         }
+        const [num, dir] = parts;
+        let n = parseFloat(num);
+        if (dir === "S" || dir === "W") n = -n;
+        return n;
     };
+    const handleIntervene = async (selectedUrgency: Urgenta) => {
 
-
-    const handleIntervene = async (urgency: Urgenta) => {
-        if (!userData || !userData.username || isApplying) {
-            if (!userData || !userData.username) {
-                Alert.alert("Eroare", "Date utilizator lipsă.");
-            }
-            return;
-        }
-
-        const emergencyId = urgency.id;
-        const userId = userData.id?.toString();
-
-        if (!userId) {
-            Alert.alert("Eroare", "ID-ul utilizatorului nu a fost găsit.");
-            return;
-        }
-
-        // Check if user is already intervening in this emergency
-        const isAlreadyIntervening = isUserIntervening(interveningEmergencies, emergencyId, userData.username);
-
-        // If user is already intervening, just open the map
-        if (isAlreadyIntervening) {
-            openInMaps(parseCoord(urgency.location[0]), parseCoord(urgency.location[1]));
-            return;
-        }
-
-        // Check if another emergency is active
-        if (activeEmergencyId !== null && activeEmergencyId !== emergencyId) {
-            Alert.alert("Blocare", "O altă intervenție este activă. Finalizați sau așteptați acea intervenție.");
-            return;
-        }
-
-        // Set this as the active emergency BEFORE starting the application
-        setActiveEmergencyId(emergencyId);
-        setIsApplying(true);
-
-        try {
-            const url = API_BASE;
-            const requestUrl = `${url}/api/UserManager/ApplyFor?EmergencyId=${emergencyId}&UserId=${userId}`;
-
-            const response = await fetch(requestUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            let data;
-            try {
-                data = await response.json();
-            } catch (e) {
-                throw new Error(`Server returned status ${response.status} but invalid JSON.`);
-            }
-
-
-            if (response.ok && data.error === null) {
-                const namesList = data.names
-                    ? data.names.split(',').map((name: string) => name.trim()).filter((name: string) => name.length > 0)
-                    : [userData.username];
-
-                const newInterventions = {
-                    ...interveningEmergencies,
-                    [emergencyId]: namesList
-                };
-
-                setInterveningEmergencies(newInterventions);
-                await saveInterveningEmergencies(newInterventions);
-
-                setDetailsVisible(false);
-
-                Alert.alert(
-                    "Succes",
-                    "Ați început intervenția! Se deschide harta.",
-                    [
-                        {
-                            text: "OK",
-                            onPress: () => {
-                                openInMaps(parseCoord(urgency.location[0]), parseCoord(urgency.location[1]));
-                            }
-                        }
-                    ]
-                );
-
-            } else {
-                console.log("API Logic Error:", data.error);
-                const errorMessage = data.error || "A apărut o eroare necunoscută.";
-                Alert.alert("Eroare intervenție", errorMessage);
-
-                setActiveEmergencyId(null);
-            }
-
-        } catch (error) {
-            console.error("Error applying for emergency:", error);
-            const msg = error instanceof Error ? error.message : "Nu s-a putut contacta serverul.";
-            Alert.alert("Eroare", msg);
-            setActiveEmergencyId(null);
-        } finally {
-            setIsApplying(false);
-        }
+        openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))
     }
-
-    const handleRefreshUrgencies = async (): Promise<number[]> => {
+    const handleRefreshUrgencies = async () => {
         const url = API_BASE;
         setIsRefreshing(true);
         try {
@@ -269,46 +103,48 @@ const HomePage: React.FC = () => {
             const data = await response.json();
 
             if (response.ok) {
+                console.log("Urgencies refreshed:");
                 const listOfUrgencies: databaseUrgency[] = data.ems;
                 setUrgencies(listOfUrgencies);
-                return listOfUrgencies.map(u => u.id);
             }
         } catch (error) {
             console.error("Error refreshing urgencies:", error);
         } finally {
             setIsRefreshing(false);
         }
-        return [];
     };
-
-
     const loadUserData = async () => {
-
         try {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
-            const isValid = await AsyncStorage.getItem("isVerified");
+            const isValid = await AsyncStorage.getItem("isValid");
             const certification_img = await AsyncStorage.getItem("certification_img");
             const reputation = await AsyncStorage.getItem("reputation");
             const events = await AsyncStorage.getItem("events");
             const emergencyid = await AsyncStorage.getItem("emergencyid");
-            const id = await AsyncStorage.getItem('id');
             setUserData({
                 username: username || "",
                 email: email || "",
-                is_validated: isValid === "true",
-                certification_mode: certification_img ? "yes" : null,
+                is_validated: "true" === "true",
+                certification_mode: "yes",
                 reputation: reputation || '0',
                 events: events || '0',
                 emergencyid: emergencyid ? parseInt(emergencyid) : 0,
-                id: id ? parseInt(id) : 0,
             });
         } catch (error) {
             console.error("Error loading user data:", error);
             Alert.alert("Eroare", "Nu s-au putut încărca datele utilizatorului");
         }
-        console.log(userData?.is_validated);
     };
+
+    // useEffect(() => {
+    //     const sample: Urgenta[] = [
+    //         { name: "Accident rutier", description: "Derived from a scrambled Latin text (Cicero's it's gibberish but mimics real language's character/word distribution, preventing distraction from design elements like typography", location: ["46.7712", "23.6236"], score: 8, count: 3, id: 1 },
+    //         { name: "Infarct", description: "Persoană inconștientă", location: ["46.7667", "23.5833"], score: 9, count: 1, id: 2 },
+    //         { name: "Cădere", description: "Persoană căzută pe stradă", location: ["46.7725", "23.6000"], score: 6, count: 0, id: 3 },
+    //     ];
+    //     setUrgencies(sample);
+    // }, []);
 
 
     useEffect(() => {
@@ -316,7 +152,6 @@ const HomePage: React.FC = () => {
             try {
                 let locModule: any = null;
                 try {
-
                     locModule = require("expo-location");
                 } catch (e) {
                     locModule = null;
@@ -347,21 +182,35 @@ const HomePage: React.FC = () => {
         getLocation();
     }, []);
 
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const distanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+        const R = 6371; // km
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    };
+
+    const openInMaps = (lat: number, lon: number) => {
+        const latStr = lat.toString();
+        const lonStr = lon.toString();
+        const googleUrl = `https://www.google.com/maps/search/?api=1&query=${latStr},${lonStr}`;
+        const wazeUrl = `https://waze.com/ul?ll=${latStr},${lonStr}&navigate=yes`;
 
 
-    const closeUrgencies = userLocation
-        ? urgencies.filter(u => {
-            const dist = distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y);
-            return dist <= 2.00;
-        })
-        : urgencies;
+        Linking.openURL(googleUrl).catch(() => {
+            Linking.openURL(wazeUrl).catch((err) => console.warn("Could not open maps:", err));
+        });
+    };
 
+    const closeUrgencies = urgencies
     const makeLeafletHtml = (markers: databaseUrgency[]) => {
         const points = markers.map(m => ({
             lat: m.location_X,
             lon: m.location_Y,
             name: m.name,
-            desc: m.description,
+            desc: m.description
         }));
         const ptsJson = JSON.stringify(points);
         return `<!DOCTYPE html>
@@ -378,7 +227,7 @@ const HomePage: React.FC = () => {
             const points = ${ptsJson};
             const first = points[0] || {lat:0,lon:0};
             const map = L.map('map').setView([first.lat, first.lon], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
             points.forEach(p => {
                 L.marker([p.lat, p.lon]).addTo(map).bindPopup('<b>'+p.name+'</b><br/>'+ (p.desc||''));
             });
@@ -386,15 +235,6 @@ const HomePage: React.FC = () => {
     </body>
 </html>`;
     };
-
-    // Calculate this value just before render, or use useMemo if complex
-    const isInterveningInSelected = useMemo(() => {
-        return selectedUrgency && userData ? isUserIntervening(interveningEmergencies, selectedUrgency.id, userData.username) : false;
-    }, [selectedUrgency, userData, interveningEmergencies]);
-
-    const isVerified = userData?.certification_mode && userData.is_validated;
-    const isInProcess = userData?.certification_mode && !userData.is_validated;
-
     return (
         <View style={styles.container}>
             {!userData || (!userData.is_validated) && (
@@ -434,7 +274,6 @@ const HomePage: React.FC = () => {
                                 >
                                     {closeUrgencies.map((u, idx) => (
                                         Marker ? (
-
                                             <Marker
                                                 key={idx}
                                                 coordinate={{
@@ -448,6 +287,7 @@ const HomePage: React.FC = () => {
                                     ))}
                                 </MapView>
                             ) : hasWebView && WebView ? (
+                                // Render a Leaflet map inside WebView as a development-friendly fallback
                                 <WebView
                                     originWhitelist={["*"]}
                                     source={{ html: makeLeafletHtml(closeUrgencies) }}
@@ -459,70 +299,15 @@ const HomePage: React.FC = () => {
                                 </View>
                             )
                         ) : (
-                            <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs.</Text>
+                            <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs. (în raza de 2 km)</Text>
                         )}
                     </View>
-                </ScrollView>
-            )
-            }
-            {
-                userData != null && isVerified && (
-                    <ScrollView style={styles.holdsContainer}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={isRefreshing}
-                                onRefresh={handleRefreshUrgencies}
-                                tintColor={theme.colors.primary}
-                                colors={[theme.colors.primary]}
-                            />
-                        }>
-                        {/* Map + list of urgencies */}
-                        <View style={styles.mapWrapper}>
-                            {/* map area */}
-                            {closeUrgencies.length > 0 ? (
-                                hasMapsModule && MapView ? (
-                                    <MapView
-                                        style={styles.map}
-                                        initialRegion={{
-                                            latitude: closeUrgencies[0].location_X,
-                                            longitude: closeUrgencies[0].location_Y,
-                                            latitudeDelta: 0.05,
-                                            longitudeDelta: 0.05,
-                                        }}
-                                    >
-                                        {closeUrgencies.map((u, idx) => (
-                                            Marker ? (
-
-                                                <Marker
-                                                    key={idx}
-                                                    coordinate={{
-                                                        latitude: u.location_X,
-                                                        longitude: u.location_Y,
-                                                    }}
-                                                    title={u.name}
-                                                    description={u.description}
-                                                />
-                                            ) : null
-                                        ))}
-                                    </MapView>
-                                ) : hasWebView && WebView ? (
-                                    <WebView
-                                        originWhitelist={["*"]}
-                                        source={{ html: makeLeafletHtml(closeUrgencies) }}
-                                        style={styles.map}
-                                    />
-                                ) : (
-                                    <View style={styles.mapUnavailable}>
-                                        <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune. </Text>
-                                    </View>
-                                )
-                            ) : (
-                                <Text style={styles.infoDescription}>Nu există urgențe în apropierea dvs.</Text>
-                            )}
-                        </View>
-                        {/* <View style={{ marginBottom: 10 }}>
+                    <View style={{ marginBottom: 10 }}>
                         <Text style={styles.title}>Urgențe Apropiate</Text>
-                        <Text style={{ color: theme.colors.onBackground, fontSize: 13, opacity: 0.7 }}>Glisati in jos pentru a actualiza urgentele</Text>
+                        <Button mode="contained" style={{ backgroundColor: theme.colors.primary }} onPress={() => handleRefreshUrgencies}>
+
+                            <Text style={styles.buttonText}>Actualizare urgente</Text>
+                        </Button>
                     </View>
                     {/* cards list below map */}
                     {isRefreshing ?
@@ -531,207 +316,135 @@ const HomePage: React.FC = () => {
                             <View style={styles.urgencyList}>
                                 {closeUrgencies.map((u, i) => {
                                     const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y) : null;
-                                    const getSeverityColor = (level: number) => {
-                                        if (level >= 8) return theme.colors.errorContainer;
-                                        if (level >= 5) return theme.colors.secondary;
-                                        return theme.colors.tertiary;
-                                    };
-                                    const severityColor = getSeverityColor(u.level);
-                                    const isIntervening = userData ? isUserIntervening(interveningEmergencies, u.id, userData.username) : false;
-                                    const interveners = interveningEmergencies[u.id] || [];
                                     return (
                                         <TouchableOpacity
                                             key={i}
-                                            disabled={activeEmergencyId !== null && activeEmergencyId !== u.id}
-                                            style={[
-                                                styles.urgencyCard,
-                                                isIntervening && { backgroundColor: theme.colors.primaryContainer },
-                                                (activeEmergencyId !== null && activeEmergencyId !== u.id) && { opacity: 0.45 }
-                                            ]}
+                                            style={styles.urgencyCard}
                                             onPress={() => {
-                                                // prevent click if another emergency is active
-                                                if (activeEmergencyId !== null && activeEmergencyId !== u.id) return;
-
-                                                const urgencyDetails: Urgenta = {
+                                                // Convert to Urgenta format for the modal
+                                                const urgentaFormat: Urgenta = {
                                                     name: u.name,
                                                     description: u.description,
                                                     location: [u.location_X.toString(), u.location_Y.toString()],
                                                     score: u.level,
-                                                    count: interveners.length,
-                                                    id: u.id,
-                                                }
-                                                setSelectedUrgency(urgencyDetails);
+                                                    count: 0, // Backend doesn't provide this
+                                                    id: u.id
+                                                };
+                                                setSelectedUrgency(urgentaFormat);
                                                 setDetailsVisible(true);
                                             }}
                                         >
-                                            {/* Severity badge */}
-                                            <View style={[styles.severityBadge, { backgroundColor: severityColor }]}>
-                                                <MaterialIcons name="priority-high" size={16} color={theme.colors.background} />
-                                                <Text style={styles.severityText}>{u.level}/5</Text>
+                                            <View>
+                                                <Text style={styles.detailText}>{u.name}</Text>
                                             </View>
-
-                                            {/* Card content */}
-                                            <View style={styles.urgencyCardContent}>
-                                                <View style={styles.urgencyTitleRow}>
-                                                    <Text style={styles.urgencyTitle}>{u.name}</Text>
-                                                </View>
-
-                                                {u.description ? (
-                                                    <Text style={styles.urgencyDescription} numberOfLines={2}>{u.description}</Text>
-                                                ) : null}
-
-                                                <View style={styles.urgencyMetas}>
-                                                    <View style={styles.metaItem}>
-                                                        <MaterialIcons name="place" size={16} color={theme.colors.secondary} />
-                                                        <Text style={styles.metaText}>{dist != null ? `${dist.toFixed(2)} km` : '—'}</Text>
-                                                    </View>
-                                                    <View style={styles.metaDivider} />
-                                                    <View style={styles.metaItem}>
-                                                        <MaterialIcons name="group" size={16} color={theme.colors.primary} />
-                                                        <Text style={styles.metaText}>{interveners.length}</Text>
+                                            <View style={styles.urgencyMetaRow_Summary}>
+                                                <View style={styles.stat_container_Summary}>
+                                                    <View style={styles.stat_element_Sumarry}>
+                                                        <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
+                                                        <Text style={styles.stat_element_text_Sumarry}>{u.level}/10</Text>
                                                     </View>
                                                 </View>
-
-                                                {/* Arrow indicator */}
-                                                <View style={styles.cardArrow}>
-                                                    <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
+                                                <View style={styles.stat_container_Summary}>
+                                                    <View style={styles.stat_element_Sumarry}>
+                                                        <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
+                                                        <Text style={styles.stat_element_text_Sumarry}>{dist != null ? `${dist.toFixed(1)} km` : '—'}</Text>
+                                                    </View>
                                                 </View>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
-                            )}
-                        {/* Details modal for selected urgency */}
-                        <Modal visible={detailsVisible} transparent animationType="fade" onRequestClose={() => setDetailsVisible(false)}>
-                            <View style={styles.modalFullScreen}>
-                                {selectedUrgency ? (
-                                    <>
-                                        {/* Full-screen map background */}
-                                        <View style={styles.mapFullScreen}>
-                                            {hasMapsModule && MapView ? (
-                                                <MapView
-                                                    style={styles.map}
-                                                    initialRegion={{
-                                                        latitude: parseCoord(selectedUrgency.location[0]),
-                                                        longitude: parseCoord(selectedUrgency.location[1]),
-                                                        latitudeDelta: 0.02,
-                                                        longitudeDelta: 0.02,
-                                                    }}
-                                                >
-                                                    {Marker ? (
-                                                        <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
-                                                    ) : null}
-                                                </MapView>
-                                            ) : hasWebView && WebView ? (
-                                                <WebView
-                                                    originWhitelist={["*"]}
-                                                    source={{
-                                                        html: makeLeafletHtml([{
-                                                            name: selectedUrgency.name,
-                                                            id: selectedUrgency.id,
-                                                            description: selectedUrgency.description,
-                                                            level: selectedUrgency.score,
-                                                            location_X: parseCoord(selectedUrgency.location[0]),
-                                                            location_Y: parseCoord(selectedUrgency.location[1]),
-                                                        }])
-                                                    }}
-                                                    style={styles.map}
-                                                />
-                                            ) : (
-                                                <View style={styles.mapUnavailable}>
-                                                    <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
-                                                </View>
-                                            )}
-                                        </View>
-
-                                        {/* Close button (top-left) */}
-                                        <TouchableOpacity
-                                            style={styles.closeButtonOverlay}
-                                            onPress={() => setDetailsVisible(false)}
-                                        >
-                                            <MaterialIcons name="arrow-back" size={28} color="white" />
+                                                <Text style={styles.urgencyMeta}>Aplicanți: 0</Text>
+                                            </View>
                                         </TouchableOpacity>
-
-                                    {/* Close button (top-left) */}
-                                    <TouchableOpacity
-                                        style={styles.closeButtonOverlay}
-                                        onPress={() => setDetailsVisible(false)}
-                                    >
-                                        <MaterialIcons name="arrow-back" size={28} color="white" />
-                                    </TouchableOpacity>
-
-                                    {/* Bottom card with details */}
-                                    <View style={styles.detailsCard}>
-                                        <ScrollView showsVerticalScrollIndicator={false}>
-                                            {/* Severity badge */}
-
-                                            {/* Title */}
-                                            <Text style={styles.cardTitle}>{selectedUrgency.name}</Text>
-
-                                            {/* Description */}
-                                            <Text style={styles.cardDescription}>{selectedUrgency.description}</Text>
-
-                                            {/* Info stats */}
-                                            <View style={styles.infoStats}>
-                                                <View style={styles.infoStatItem}>
-                                                    <MaterialIcons name="priority-high" size={20} color={theme.colors.errorContainer} />
-                                                    <View style={styles.infoStatText}>
-                                                        <Text style={styles.infoStatLabel}>Prioritate</Text>
-                                                        <Text style={styles.infoStatValue}>{selectedUrgency.score}/5</Text>
+                                    );
+                                })}
+                            </View>
+                        )}
+                    {/* Details modal for selected urgency */}
+                    <Modal visible={detailsVisible} transparent animationType="slide" onRequestClose={() => setDetailsVisible(false)}>
+                        <ScrollView >
+                            <View style={styles.modalOverlay}>
+                                <View style={styles.modalContentLarge}>
+                                    {selectedUrgency ? (
+                                        <>
+                                            <Text style={styles.detailTitle}>{selectedUrgency.name}</Text>
+                                            <Text style={styles.detailText}>{selectedUrgency.description}</Text>
+                                            <View style={styles.stat_container}>
+                                                <View style={styles.stat_element}>
+                                                    <MaterialIcons name="warning" size={50} color={theme.colors.errorContainer} />
+                                                    <Text style={styles.stat_element_text}>Prioritate</Text>
+                                                </View>
+                                                <View style={styles.stat_element}>
+                                                    <Text style={styles.stat_text}>{selectedUrgency.score}/10</Text>
+                                                </View>
+                                            </View>
+                                            {userLocation ? (
+                                                <View style={styles.stat_container}>
+                                                    <View style={styles.stat_element}>
+                                                        <MaterialIcons name="place" size={50} color={theme.colors.secondary} />
+                                                        <Text style={styles.stat_element_text}>Distanță</Text>
+                                                    </View>
+                                                    <View style={styles.stat_element}>
+                                                        <Text style={styles.stat_text}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(1)} km</Text>
                                                     </View>
                                                 </View>
+                                            ) : null}
 
-                                                {/* Title */}
-                                                <Text style={styles.cardTitle}>{selectedUrgency.name}</Text>
+                                            <TouchableOpacity style={styles.intervineButton} onPress={() => handleIntervene(selectedUrgency)}>
+                                                <Text style={styles.intervineButtonText}>Intervine</Text>
+                                            </TouchableOpacity>
 
-                                                {/* Description */}
-                                                <Text style={styles.cardDescription}>{selectedUrgency.description}</Text>
-
-                                                {/* Info stats */}
-                                                <View style={styles.infoStats}>
-                                                    <View style={styles.infoStatItem}>
-                                                        <MaterialIcons name="priority-high" size={20} color={theme.colors.errorContainer} />
-                                                        <View style={styles.infoStatText}>
-                                                            <Text style={styles.infoStatLabel}>Distanță</Text>
-                                                            <Text style={styles.infoStatValue}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(2)} km</Text>
-                                                        </View>
+                                            <View style={styles.detailMapWrapper}>
+                                                {hasMapsModule && MapView ? (
+                                                    <MapView
+                                                        style={styles.map}
+                                                        initialRegion={{
+                                                            latitude: parseCoord(selectedUrgency.location[0]),
+                                                            longitude: parseCoord(selectedUrgency.location[1]),
+                                                            latitudeDelta: 0.01,
+                                                            longitudeDelta: 0.01,
+                                                        }}
+                                                    >
+                                                        {Marker ? (
+                                                            <Marker coordinate={{ latitude: parseCoord(selectedUrgency.location[0]), longitude: parseCoord(selectedUrgency.location[1]) }} title={selectedUrgency.name} />
+                                                        ) : null}
+                                                    </MapView>
+                                                ) : hasWebView && WebView ? (
+                                                    <WebView
+                                                        originWhitelist={["*"]}
+                                                        source={{
+                                                            html: makeLeafletHtml([{
+                                                                name: selectedUrgency.name,
+                                                                id: selectedUrgency.id,
+                                                                description: selectedUrgency.description,
+                                                                level: selectedUrgency.score,
+                                                                location_X: parseCoord(selectedUrgency.location[0]),
+                                                                location_Y: parseCoord(selectedUrgency.location[1]),
+                                                            }])
+                                                        }}
+                                                        style={styles.map}
+                                                    />
+                                                ) : (
+                                                    <View style={styles.mapUnavailable}>
+                                                        <Text style={styles.infoDescription}>Harta nu este disponibilă în această sesiune.</Text>
                                                     </View>
-                                                ) : null}
+                                                )}
                                             </View>
 
-                                            {/* Action buttons */}
-                                            <View style={styles.actionButtonsCard}>
-                                                <TouchableOpacity
-                                                    style={styles.primaryActionButton}
-                                                    onPress={() => handleIntervene(selectedUrgency)}
-                                                >
-                                                    <MaterialIcons name="directions" size={20} color={theme.colors.onPrimary} />
-                                                    <Text style={styles.primaryActionText}>Intervine</Text>
-                                                </TouchableOpacity>
+                                            <TouchableOpacity style={styles.openMapButton} onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}>
+                                                <Text style={styles.openMapButtonText}>Deschide în Google Maps</Text>
+                                            </TouchableOpacity>
 
-                                                <TouchableOpacity
-                                                    style={styles.secondaryActionButton}
-                                                    onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}
-                                                >
-                                                    <MaterialIcons name="map" size={20} color={theme.colors.primary} />
-                                                    <Text style={styles.secondaryActionText}>Google Maps</Text>
-                                                </TouchableOpacity>
-                                            </View>
-
-                                                <View style={{ height: 20 }} />
-                                            </ScrollView>
-                                        </View>
-                                    </>
-                                ) : (
-                                    <View style={styles.loadingContainer}>
+                                            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setDetailsVisible(false)}>
+                                                <Text style={styles.modalCloseButtonText}>Închide</Text>
+                                            </TouchableOpacity>
+                                        </>
+                                    ) : (
                                         <ActivityIndicator size="large" color={theme.colors.primary} />
-                                    </View>
-                                )}
+                                    )}
+                                </View>
                             </View>
-                        </Modal>
-                    </ScrollView >
-                )
-            }
+                        </ScrollView>
+                    </Modal>
+                </ScrollView >
+            )}
         </View >
     );
 };
@@ -744,13 +457,13 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     infoTitle: {
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: "bold",
         color: theme.colors.onBackground,
         marginBottom: 10,
     },
     infoDescription: {
-        fontSize: 12,
+        fontSize: 14,
         color: theme.colors.onBackground,
         lineHeight: 20,
     },
@@ -761,7 +474,7 @@ const styles = StyleSheet.create({
         marginBottom: 30,
     },
     title: {
-        fontSize: 22,
+        fontSize: 24,
         fontWeight: "bold",
         marginBottom: 15,
         alignSelf: 'center',
@@ -787,33 +500,6 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         marginTop: 20,
-    },
-    emptyStateContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 60,
-        paddingHorizontal: 20,
-    },
-    emptyStateTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: theme.colors.onBackground,
-        marginTop: 20,
-        marginBottom: 10,
-        textAlign: 'center',
-    },
-    emptyStateDescription: {
-        fontSize: 12,
-        color: theme.colors.onBackground,
-        textAlign: 'center',
-        marginBottom: 8,
-        lineHeight: 22,
-    },
-    emptyStateSubtext: {
-        fontSize: 14,
-        color: theme.colors.outline,
-        textAlign: 'center',
-        fontStyle: 'italic',
     },
     bottom_text: {
         color: theme.colors.onBackground,
@@ -847,7 +533,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     stat_text: {
-        color: theme.colors.onErrorContainer,
+        color: theme.colors.onBackground,
         fontSize: 30,
     },
     stat_element_text: {
@@ -877,11 +563,10 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     mapWrapper: {
-        height: 180,
+        height: 300,
         borderRadius: 12,
         overflow: "hidden",
         marginBottom: 12,
-        marginTop: 30,
     },
     map: {
         width: "100%",
@@ -915,75 +600,9 @@ const styles = StyleSheet.create({
     /* mapProviderBadge removed */
     urgencyCard: {
         backgroundColor: theme.colors.backdrop,
-        borderRadius: 16,
+        borderRadius: 12,
         padding: 12,
         marginBottom: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    severityBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        borderRadius: 10,
-        marginRight: 12,
-        gap: 4,
-    },
-    severityText: {
-        color: theme.colors.errorContainer,
-        fontWeight: '600',
-        fontSize: 12,
-    },
-    urgencyCardContent: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    urgencyTitleRow: {
-        marginBottom: 4,
-    },
-    urgencyTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: theme.colors.onBackground,
-    },
-    urgencyDescription: {
-        fontSize: 13,
-        color: theme.colors.onBackground,
-        opacity: 0.7,
-        marginBottom: 8,
-        lineHeight: 18,
-    },
-    urgencyMetas: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    metaItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    metaText: {
-        fontSize: 12,
-        color: theme.colors.onBackground,
-        opacity: 0.8,
-    },
-    metaDivider: {
-        width: 1,
-        height: 14,
-        backgroundColor: theme.colors.outline,
-        opacity: 0.3,
-    },
-    cardArrow: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 8,
     },
     urgencyCardDescription: {
         fontSize: 14,
@@ -1027,149 +646,14 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.5)",
         justifyContent: "center",
         alignItems: "center",
-        padding: 10,
+        padding: 20,
     },
     modalContentLarge: {
         width: "100%",
+        maxHeight: "90%",
         backgroundColor: theme.colors.background,
         borderRadius: 12,
         padding: 16,
-    },
-    modalFullScreen: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-        position: 'relative',
-    },
-    mapFullScreen: {
-        ...StyleSheet.absoluteFillObject,
-        height: '100%',
-        width: '100%',
-    },
-    closeButtonOverlay: {
-        position: 'absolute',
-        top: 50,
-        left: 20,
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    detailsCard: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: theme.colors.background,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        paddingTop: 20,
-        paddingHorizontal: 20,
-        maxHeight: '75%',
-        zIndex: 5,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 10,
-    },
-    cardBadgeContainer: {
-        marginBottom: 16,
-    },
-    severityBadgeLarge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        gap: 8,
-        alignSelf: 'flex-start',
-    },
-    severityTextLarge: {
-        color: 'white',
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    cardTitle: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: theme.colors.onBackground,
-        marginBottom: 10,
-    },
-    cardDescription: {
-        fontSize: 14,
-        color: theme.colors.onBackground,
-        opacity: 0.75,
-        lineHeight: 20,
-        marginBottom: 16,
-    },
-    infoStats: {
-        gap: 12,
-        marginBottom: 20,
-    },
-    infoStatItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.backdrop,
-        padding: 12,
-        borderRadius: 12,
-        gap: 12,
-    },
-    infoStatText: {
-        flex: 1,
-    },
-    infoStatLabel: {
-        fontSize: 12,
-        color: theme.colors.onBackground,
-        opacity: 0.7,
-    },
-    infoStatValue: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: theme.colors.onBackground,
-        marginTop: 2,
-    },
-    actionButtonsCard: {
-        gap: 12,
-    },
-    primaryActionButton: {
-        backgroundColor: theme.colors.primary,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-    },
-    primaryActionText: {
-        color: theme.colors.onPrimary,
-        fontWeight: '700',
-        fontSize: 16,
-    },
-    secondaryActionButton: {
-        backgroundColor: theme.colors.backdrop,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        borderWidth: 1.5,
-        borderColor: theme.colors.primary,
-    },
-    secondaryActionText: {
-        color: theme.colors.primary,
-        fontWeight: '700',
-        fontSize: 16,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
     detailTitle: {
         fontSize: 30,
@@ -1189,18 +673,18 @@ const styles = StyleSheet.create({
         marginVertical: 12,
     },
     openMapButton: {
-        backgroundColor: theme.colors.secondaryContainer,
+        backgroundColor: theme.colors.primary,
         padding: 12,
         borderRadius: 8,
         alignItems: "center",
         marginBottom: 10,
     },
     openMapButtonText: {
-        color: 'white',
+        color: theme.colors.onBackground,
         fontWeight: "bold",
     },
     intervineButton: {
-        backgroundColor: theme.colors.primaryContainer,
+        backgroundColor: theme.colors.secondary,
         padding: 12,
         borderRadius: 8,
         alignItems: "center",
@@ -1209,7 +693,6 @@ const styles = StyleSheet.create({
     intervineButtonText: {
         color: theme.colors.onBackground,
         fontWeight: "bold",
-        fontSize: 16,
     },
     modalCloseButton: {
         backgroundColor: theme.colors.outline,
