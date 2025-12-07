@@ -122,6 +122,7 @@ namespace server.Controllers
             }
             else
             {
+                reader.Close();
                 // Check if email exists but password is wrong
                 string emailCheckSql = "SELECT COUNT(*) FROM Users WHERE Name = @Name";
                 using var emailCheckCommand = new SqlCommand(emailCheckSql, connection);
