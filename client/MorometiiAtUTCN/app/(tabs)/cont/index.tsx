@@ -145,6 +145,7 @@ const AccountPage: React.FC = () => {
                         ['events', result.emCount !== undefined ? result.emCount.toString() : '0'],
                         ['id', result.id ? result.id.toString() : '0'],
                         ['isAdmin', result.isAdmin ? 'true' : 'false'],
+                        ['email', result.data.email || ''],
                     ]);
 
                     await loadCachedUserData();

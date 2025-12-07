@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { distanceKm, isUserIntervening, openInMaps, parseCoord, saveInterveningEmergencies } from "./functions";
+import { distanceKm, isUserIntervening, openInMaps, parseCoord } from "./functions";
 // Platform-safe map imports
 let MapView: any = null;
 let Marker: any = null;
@@ -142,7 +142,6 @@ const HomePage: React.FC = () => {
             });
 
             setInterveningEmergencies(applicantsMap);
-            await saveInterveningEmergencies(applicantsMap);
         } catch (error) {
             console.error("Error fetching applicants:", error);
         }
@@ -214,7 +213,6 @@ const HomePage: React.FC = () => {
                 };
 
                 setInterveningEmergencies(newInterventions);
-                await saveInterveningEmergencies(newInterventions);
 
                 setDetailsVisible(false);
 
@@ -389,24 +387,36 @@ const HomePage: React.FC = () => {
     return (
         <View style={styles.container}>
             {!userData || isInProcess && (
-                <ScrollView style={styles.holdsContainer} refreshControl={
-                    <RefreshControl
-                        refreshing={isRefreshing}
-                        onRefresh={loadUserData}
-                        tintColor={theme.colors.primary}
-                        colors={[theme.colors.primary]}
-                    />
-                }>
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{
+                        flexGrow: 1,
+                        alignItems: 'center',
+                        paddingHorizontal: 0,
+                        paddingTop: 150,
+                    }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={loadUserData}
+                            tintColor={theme.colors.primary}
+                            colors={[theme.colors.primary]}
+                        />
+                    }
+                >
                     <View style={styles.certificationInfo}>
                         <Text style={styles.infoTitle}>Înainte să începem...</Text>
+
                         <Text style={styles.infoDescription}>
                             {"\n"}Platforma noastră cere utilizatorilor un document prin care aceștia să demonstreze că dețin cunoștiințele necesare pentru a acorda prim ajutor!{"\n\n"}
                         </Text>
+
                         <Text style={styles.infoDescription}>
                             Află mai multe în pagina 'Cont'!
                         </Text>
                     </View>
                 </ScrollView>
+
             )
             }
             {

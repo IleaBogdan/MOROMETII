@@ -13,16 +13,7 @@ export const parseCoord = (value: string | number) => {
   if (dir === "S" || dir === "W") n = -n;
   return n;
 };
-export const saveInterveningEmergencies = async (data: {
-  [key: number]: string[];
-}) => {
-  try {
-    const jsonValue = JSON.stringify(data);
-    await AsyncStorage.setItem("@intervening_emergencies", jsonValue);
-  } catch (e) {
-    console.error("Error saving intervening emergencies:", e);
-  }
-};
+
 export const isUserIntervening = (
   interveningEmergencies: { [key: number]: string[] },
   emergencyId: number,
