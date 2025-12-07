@@ -2,7 +2,8 @@ import { API_BASE } from "@/api/apiCalls";
 import { theme } from '@/theme/theme';
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 // Platform-safe map imports
 let MapView: any = null;
@@ -73,9 +74,15 @@ const HomePage: React.FC = () => {
     // When set, only emergencies with this ID remain clickable
     const [activeEmergencyId, setActiveEmergencyId] = useState<number | null>(null);
 
+    useFocusEffect(
+        useCallback(() => {
+            loadUserData();
+            handleRefreshUrgencies();
+            loadInterveningEmergencies();
+        }, [])
+    );
+
     useEffect(() => {
-        loadUserData();
-        handleRefreshUrgencies();
         loadInterveningEmergencies();
     }, []);
 
@@ -489,7 +496,7 @@ const HomePage: React.FC = () => {
                                             {/* Severity badge */}
                                             <View style={[styles.severityBadge, { backgroundColor: severityColor }]}>
                                                 <MaterialIcons name="priority-high" size={16} color={theme.colors.background} />
-                                                <Text style={styles.severityText}>{u.level}/10</Text>
+                                                <Text style={styles.severityText}>{u.level}/5</Text>
                                             </View>
 
                                             {/* Card content */}
@@ -592,7 +599,7 @@ const HomePage: React.FC = () => {
                                                     <MaterialIcons name="priority-high" size={20} color={theme.colors.errorContainer} />
                                                     <View style={styles.infoStatText}>
                                                         <Text style={styles.infoStatLabel}>Prioritate</Text>
-                                                        <Text style={styles.infoStatValue}>{selectedUrgency.score}/10</Text>
+                                                        <Text style={styles.infoStatValue}>{selectedUrgency.score}/5</Text>
                                                     </View>
                                                 </View>
 
