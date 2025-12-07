@@ -22,7 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error("Failed to fetch admin status", e);
         }
     };
-
+    console.log(isAdmin);
     useEffect(() => {
         refreshAdminStatus();
     }, []);

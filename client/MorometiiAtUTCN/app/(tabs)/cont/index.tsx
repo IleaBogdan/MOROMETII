@@ -345,7 +345,7 @@ const AccountPage: React.FC = () => {
                 <View style={styles.profileInfo}>
                     <Text style={styles.profileName}>{userData.username}</Text>
                     <Text style={styles.profileEmail}>{userData.email}</Text>
-                    {userData.isVerified && (
+                    {userData.isVerified && userData.certification_img && !(!userData.isVerified && userData.certification_img) && (
                         <View style={styles.certificationBadgeContainer}>
                             <MaterialIcons name="verified" size={16} color={theme.colors.background} />
                             <Text style={styles.certificationBadgeText}>Certificat verificat</Text>
