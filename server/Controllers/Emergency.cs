@@ -94,44 +94,114 @@ namespace server.Controllers
                 });
             }
 
-            using var connection = new SqlConnection(__connectionString);
-            connection.Open();
-
-            string sql = @"
-                UPDATE Users
-                SET Reputation = ISNULL(Reputation, 0) + @Level,
-                    EmergenciesCompleted = ISNULL(EmergenciesCompleted, 0) + 1
-                WHERE EmergencyId = @EmergencyId";
-
-            using var commandUpdate = new SqlCommand(sql, connection);
-            commandUpdate.Parameters.AddWithValue("@Level", req.Level);
-            commandUpdate.Parameters.AddWithValue("@EmergencyId", req.Id);
-
-            commandUpdate.ExecuteNonQuery();
-
-            sql = "DELETE FROM Emergency WHERE ID = @Id";
-
-            using var commandDelete = new SqlCommand(sql, connection);
-            commandDelete.Parameters.AddWithValue("@Id", req.Id);
-
-            int rowsAffected = commandDelete.ExecuteNonQuery();
-
-            if (rowsAffected == 0)
+            try
             {
+                using var connection = new SqlConnection(__connectionString);
+                connection.Open();
+
+                // First, get the emergency details including ApplyersUsernames
+                string getEmergencySql = @"
+            SELECT ApplyersUsernames, Lvl_Emergency 
+            FROM Emergency 
+            WHERE ID = @Id";
+
+                using var getEmergencyCommand = new SqlCommand(getEmergencySql, connection);
+                getEmergencyCommand.Parameters.AddWithValue("@Id", req.Id);
+
+                using var reader = getEmergencyCommand.ExecuteReader();
+                string applyersUsernames = null;
+                int emergencyLevel = 0;
+
+                if (reader.Read())
+                {
+                    applyersUsernames = reader["ApplyersUsernames"] as string;
+                    emergencyLevel = Convert.ToInt32(reader["Lvl_Emergency"]);
+                }
+                reader.Close();
+
+                // If there are applyers usernames, process them
+                if (!string.IsNullOrWhiteSpace(applyersUsernames))
+                {
+                    // Split the usernames by comma
+                    var usernames = applyersUsernames
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(u => u.Trim())
+                        .Where(u => !string.IsNullOrWhiteSpace(u))
+                        .ToList();
+
+                    if (usernames.Any())
+                    {
+                        // Update users' reputation and emergency count based on usernames
+                        string updateUsersSql = @"
+                    UPDATE Users 
+                    SET Reputation = ISNULL(Reputation, 0) + @EmergencyLevel,
+                        EmCount = ISNULL(EmCount, 0) + 1
+                    WHERE Name IN (";
+
+                        // Create parameterized query for usernames
+                        for (int i = 0; i < usernames.Count; i++)
+                        {
+                            updateUsersSql += $"@Username{i}";
+                            if (i < usernames.Count - 1)
+                                updateUsersSql += ",";
+                        }
+                        updateUsersSql += ")";
+
+                        using var updateUsersCommand = new SqlCommand(updateUsersSql, connection);
+                        updateUsersCommand.Parameters.AddWithValue("@EmergencyLevel", emergencyLevel);
+
+                        for (int i = 0; i < usernames.Count; i++)
+                        {
+                            updateUsersCommand.Parameters.AddWithValue($"@Username{i}", usernames[i]);
+                        }
+
+                        updateUsersCommand.ExecuteNonQuery();
+                    }
+                }
+
+                // Delete the emergency
+                string deleteEmergencySql = "DELETE FROM Emergency WHERE ID = @Id";
+
+                using var deleteEmergencyCommand = new SqlCommand(deleteEmergencySql, connection);
+                deleteEmergencyCommand.Parameters.AddWithValue("@Id", req.Id);
+
+                int rowsAffected = deleteEmergencyCommand.ExecuteNonQuery();
+
+                if (rowsAffected == 0)
+                {
+                    return Ok(new EmergencyResponse
+                    {
+                        Error = "No emergency deleted (id may not exist)",
+                        Ems = null,
+                        Count = 0
+                    });
+                }
+
                 return Ok(new EmergencyResponse
                 {
-                    Error = "No emergency deleted (id may not exist)",
+                    Error = null,
+                    Ems = null,
+                    Count = rowsAffected
+                });
+            }
+            catch (SqlException ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new EmergencyResponse
+                {
+                    Error = $"Database error: {ex.Message}",
                     Ems = null,
                     Count = 0
                 });
             }
-
-            return Ok(new EmergencyResponse
+            catch (Exception ex)
             {
-                Error = null,
-                Ems = null,
-                Count = rowsAffected
-            });
+                return StatusCode(StatusCodes.Status500InternalServerError, new EmergencyResponse
+                {
+                    Error = $"Unexpected error: {ex.Message}",
+                    Ems = null,
+                    Count = 0
+                });
+            }
         }
 
         // previous DeleteEmergency placeholder removed and replaced with working implementation

@@ -2,7 +2,7 @@ select * from Users
 
 UPDATE Users
 SET [IsVerified] = 1
-WHERE Id = 9;
+WHERE Id = 23;
 
 select * from Emergency
 
