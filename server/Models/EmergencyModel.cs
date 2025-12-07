@@ -1,4 +1,5 @@
-﻿namespace server.Models
+﻿// models for respons in emergencys
+namespace server.Models
 {
     public class EmergencyObject
     {

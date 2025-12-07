@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿// this is not working.
+// we should have had a webhook but it is broken
+
+using Microsoft.AspNetCore.SignalR;
 using server.Models;
 using server.Controllers;
 using System.Data.SqlClient;

@@ -1,3 +1,4 @@
+// model for respons
 namespace server.Models
 {
     public class ApplierResponse

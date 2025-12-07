@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿// helper controllers to do stuff
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace server.Models
 {
