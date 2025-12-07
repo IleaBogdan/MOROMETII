@@ -3,7 +3,7 @@ import { theme } from '@/theme/theme';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RelativePathString, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from "react-native";
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 
 const SignInPage: React.FC = () => {
@@ -31,7 +31,8 @@ const SignInPage: React.FC = () => {
                 ['events', result.data.emCount ? (result.data.emCount).toString() : '0'],
                 ['id', (result.data.id).toString() || '0'],
             ]);
-            router.push("/(tabs)/acasa" as RelativePathString);
+            // Replace navigation to ensure tabs/pages remount and receive focus
+            router.replace("/(tabs)/acasa" as RelativePathString);
         } else if (result?.data.error) {
             Alert.alert(
                 "Eroare de Autentificare!",

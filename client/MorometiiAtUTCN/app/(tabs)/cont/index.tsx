@@ -2,9 +2,10 @@ import { API_BASE } from "@/api/apiCalls";
 import { theme } from "@/theme/theme";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { RelativePathString, router } from "expo-router";
-import React, { useEffect, useState, } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -39,6 +40,13 @@ const AccountPage: React.FC = () => {
         };
         initialize();
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            // Reload user data whenever this screen gains focus (e.g. after login)
+            loadUserData();
+        }, [])
+    );
     const handleRefresh = async () => {
         setIsRefreshing(true);
         await loadUserData();

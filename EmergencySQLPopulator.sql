@@ -1,8 +1,8 @@
 select * from Users
 
 UPDATE Users
-SET [IsVerified] = 1
-WHERE Id = 3;
+SET [EmCount] = 4
+WHERE Id = 1;
 
 select * from Emergency
 
