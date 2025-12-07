@@ -1,14 +1,24 @@
 select * from Users
 
 UPDATE Users
-SET [IsVerified] = 1
-WHERE Id = 23;
+SET [IsAdmin] = 1
+WHERE Id = 1;
 
 select * from Emergency
 
-update Emergency set [ApplyersUsernames]=NULL, [ActiveApplyers]=NULL where ID=42
+DELETE FROM Users WHERE ID>7;
+
+update Emergency set [ApplyersUsernames]=NULL, [ActiveApplyers]=NULL where ID=41
 
 DELETE FROM Emergency;
+
+insert into Emergency (Name, Lvl_Emergency, Description, Location_X, Location_Y) values 
+('Forest Fire - Cluj', 4, 'Large forest fire spreading rapidly', 46.783154, 23.608906),
+('Building Collapse - City Center', 5, 'Apartment building partially collapsed', 46.783254, 23.609006),
+('Flooding - Riverside', 4, 'River banks breached, evacuations underway', 46.765432, 23.587654),
+('Traffic Pile-Up - Highway A3', 4, '15-vehicle collision, multiple injuries', 46.812345, 23.712345),
+('Hospital Fire - Emergency Wing', 5, 'Fire in ICU, patient evacuation in progress', 46.745678, 23.623456)
+
 
 -- Insert emergency data with random coordinates
 INSERT INTO Emergency (Name, Lvl_Emergency, Description, Location_X, Location_Y) 

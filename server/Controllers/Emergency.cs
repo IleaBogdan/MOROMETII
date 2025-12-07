@@ -16,9 +16,11 @@ namespace server.Controllers
     [ApiController]
     public class Emergency : ControllerBase
     {
+        // connection string for sql commands
         public static string __connectionString { get; private set; }
         public static void set_connection(string connectionString)
         {
+            // init function
             __connectionString = connectionString;
         }
 
@@ -27,17 +29,22 @@ namespace server.Controllers
         [ProducesResponseType(typeof(EmergencyResponse), StatusCodes.Status200OK)]
         public IActionResult FindEmergency(float Location_X,float Location_Y)
         {
+            // function tat returns all of the emergencys in the db
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
+
+            // sql string
             string sql = @"SELECT * FROM Emergency";
 
+            // sql query with params to prevemt injections
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@Location_X", Location_X);
             command.Parameters.AddWithValue("@Location_Y", Location_Y);
 
-            using var reader = command.ExecuteReader();
+            using var reader = command.ExecuteReader(); // execute query
 
+            // findong the list of emergency objects 
             var emergencies = new List<EmergencyObject>();
             while (reader.Read())
             {
@@ -52,6 +59,7 @@ namespace server.Controllers
                 };
                 emergencies.Add(emergency);
             }
+            // sorting them descendingly
             var sortedEmergencies = emergencies.OrderBy(e => -e.Level).ToList();
             return Ok(new EmergencyResponse { Error = null, Ems = sortedEmergencies, Count = sortedEmergencies.Count });
         }
@@ -61,11 +69,13 @@ namespace server.Controllers
         [ProducesResponseType(typeof(EmergencyResponse), StatusCodes.Status200OK)]
         public IActionResult MakeEmergency([FromBody] EmergencyObject req)
         {
+            // function to make a emergency in the db
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
             string sql = "INSERT INTO Emergency ([Name],[Location_X],[Location_Y],[Lvl_Emergency],[Description]) VALUES (@Name,@Location_X,@Location_Y,@Level,@Description)";
 
+            // execute command to insert the emergency
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@Name", req.Name);
             command.Parameters.AddWithValue("@Location_X", req.Location_X);
@@ -73,6 +83,8 @@ namespace server.Controllers
             command.Parameters.AddWithValue("@Level", req.Level);
             command.Parameters.AddWithValue("@Description", req.Description);
 
+
+            // execute with no return
             command.ExecuteNonQuery();
 
             return Ok(new EmergencyResponse { Error = null, Ems = null, Count = 1 });
@@ -84,7 +96,8 @@ namespace server.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public IActionResult DeleteEmergency([FromBody] EmergencyObject req)
         {
-            if (req == null || req.Id <= 0)
+            // function to close emergencys
+            if (req == null || req.Id <= 0) // invalid Id
             {
                 return BadRequest(new EmergencyResponse
                 {

@@ -11,17 +11,18 @@ namespace server.Controllers
     [ApiController]
     public class UserManager : ControllerBase
     {
+        // connection string to make connections in db
         public static string __connectionString { get; private set; }
         public static void set_connection(string connectionString)
         {
             __connectionString = connectionString;
         }
+        // helper objects
         public class CertificateUploadRequest
         {
             public int UserId { get; set; }
             public IFormFile CertificateFile { get; set; }
         }
-
         public class CertificateResponse
         {
             public bool Success { get; set; }
@@ -37,6 +38,7 @@ namespace server.Controllers
         [Consumes("multipart/form-data")] // Important for file uploads
         public async Task<IActionResult> UploadCertificate([FromForm] CertificateUploadRequest request)
         {
+            // photo uploat function
             if (request.UserId <= 0)
                 return BadRequest(new CertificateResponse { Success = false, Message = "Invalid user ID" });
 
@@ -110,6 +112,7 @@ namespace server.Controllers
         [ProducesResponseType(typeof(ApplyResponse), StatusCodes.Status200OK)]
         public IActionResult GetApplicants(int EmergencyId)
         {
+            // returns the number of aplicants in the emergency
             if (EmergencyId <= 0 || EmergencyId==null)
             {
                 return Ok(new ApplyResponse
@@ -121,6 +124,7 @@ namespace server.Controllers
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 
+            // querys for aplicants usernames in the emergency
             string sql = @"SELECT ApplyersUsernames FROM Emergency WHERE ID=@Id";
             using var command=new SqlCommand(sql,connection);
             command.Parameters.AddWithValue("@Id", EmergencyId);
@@ -134,7 +138,7 @@ namespace server.Controllers
             string usernames = reader.IsDBNull(usernameColumnIndex)
                 ? string.Empty  // or null, depending on your needs
                 : reader.GetString(usernameColumnIndex);
-            return Ok(new ApplyResponse { 
+            return Ok(new ApplyResponse { // returning usernames string
                 Error=null,
                 Names=usernames
             });
@@ -144,6 +148,7 @@ namespace server.Controllers
         [ProducesResponseType(typeof(ApplyResponse), StatusCodes.Status200OK)]
         public IActionResult ApplyFor(int EmergencyId, int UserId)
         {
+            // applying for helping in the emergency
             using var connection = new SqlConnection(__connectionString);
             connection.Open();
 

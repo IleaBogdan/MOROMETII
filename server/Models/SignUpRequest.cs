@@ -1,4 +1,5 @@
-﻿namespace server.Models
+﻿// signeup request 
+namespace server.Models
 {
     public class SignUpRequest
     {
