@@ -3,8 +3,9 @@ import { theme } from '@/theme/theme';
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { distanceKm, isUserIntervening, openInMaps, parseCoord, saveInterveningEmergencies } from "./functions";
 // Platform-safe map imports
 let MapView: any = null;
 let Marker: any = null;
@@ -48,7 +49,7 @@ interface Urgenta {
     description: string;        // optional
     location: [string, string]; // latx and laty
     score: number; // how urgent is this 
-    count: number; // number of people that applied already 
+    count: number;
     id: number;
 }
 interface databaseUrgency {
@@ -71,57 +72,84 @@ const HomePage: React.FC = () => {
     const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const [selectedUrgency, setSelectedUrgency] = useState<Urgenta | null>(null);
     const [detailsVisible, setDetailsVisible] = useState(false);
-    // When set, only emergencies with this ID remain clickable
     const [activeEmergencyId, setActiveEmergencyId] = useState<number | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const isFetchingRef = useRef(false);
 
     useFocusEffect(
         useCallback(() => {
-            loadUserData();
-            handleRefreshUrgencies();
-            loadInterveningEmergencies();
-        }, [])
+            const initializeData = async () => {
+                if (isFetchingRef.current) return;
+
+                isFetchingRef.current = true;
+
+                try {
+                    if (!isInitialized) {
+                        await loadUserData();
+                        setIsInitialized(true);
+                    }
+
+                    const emergencyIds = await handleRefreshUrgencies();
+                    if (emergencyIds && emergencyIds.length > 0) {
+                        await fetchAllApplicants(emergencyIds);
+                    }
+                } finally {
+                    isFetchingRef.current = false;
+                }
+            };
+
+            initializeData();
+
+
+            return () => {
+                isFetchingRef.current = false;
+            };
+        }, [isInitialized])
     );
 
-    useEffect(() => {
-        loadInterveningEmergencies();
-    }, []);
 
 
-    const parseCoord = (value: string | number) => {
-        if (typeof value === 'number') return value;
-        if (!value) return 0;
-        const parts = value.trim().split(" ");
-        if (parts.length === 1) {
-            return parseFloat(parts[0]);
-        }
-        const [num, dir] = parts;
-        let n = parseFloat(num);
-        if (dir === "S" || dir === "W") n = -n;
-        return n;
-    };
-    const loadInterveningEmergencies = async () => {
+    const fetchAllApplicants = async (emergencyIds: number[]) => {
+
         try {
-            const jsonValue = await AsyncStorage.getItem('@intervening_emergencies');
-            setInterveningEmergencies(jsonValue != null ? JSON.parse(jsonValue) : {});
-        } catch (e) {
-            console.error("Error loading intervening emergencies:", e);
+            const url = API_BASE;
+
+            const promises = emergencyIds.map(async (id) => {
+                try {
+                    const response = await fetch(`${url}/api/UserManager/GetApplicants?EmergencyId=${id}`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const data = await response.json();
+                    console.log(data);
+                    return {
+                        id,
+                        names: data.names || ''
+                    };
+                } catch {
+                    return { id, names: '' };
+                }
+            });
+
+            const results = await Promise.all(promises);
+
+            const applicantsMap: { [key: number]: string[] } = {};
+            results.forEach((result) => {
+                const namesList = result.names
+                    ? result.names.split(',').map((n: string) => n.trim()).filter((n: string) => n.length > 0)
+                    : [];
+                applicantsMap[result.id] = namesList;
+            });
+
+            setInterveningEmergencies(applicantsMap);
+            await saveInterveningEmergencies(applicantsMap);
+        } catch (error) {
+            console.error("Error fetching applicants:", error);
         }
     };
-    const saveInterveningEmergencies = async (data: { [key: number]: string[] }) => {
-        try {
-            const jsonValue = JSON.stringify(data);
-            await AsyncStorage.setItem('@intervening_emergencies', jsonValue);
-        } catch (e) {
-            console.error("Error saving intervening emergencies:", e);
-        }
-    };
-    const isUserIntervening = (emergencyId: number, userName: string) => {
-        const interveners = interveningEmergencies[emergencyId] || [];
-        return interveners.includes(userName);
-    };
+
 
     const handleIntervene = async (urgency: Urgenta) => {
-        // 1. input validation
         if (!userData || !userData.username || isApplying) {
             if (!userData || !userData.username) {
                 Alert.alert("Eroare", "Date utilizator lipsă.");
@@ -130,7 +158,6 @@ const HomePage: React.FC = () => {
         }
 
         const emergencyId = urgency.id;
-        // Ensure we have a valid string for ID, otherwise stop.
         const userId = userData.id?.toString();
 
         if (!userId) {
@@ -138,28 +165,28 @@ const HomePage: React.FC = () => {
             return;
         }
 
-        // 2. Prevent starting a different intervention while another is active
+        // Check if user is already intervening in this emergency
+        const isAlreadyIntervening = isUserIntervening(interveningEmergencies, emergencyId, userData.username);
+
+        // If user is already intervening, just open the map
+        if (isAlreadyIntervening) {
+            openInMaps(parseCoord(urgency.location[0]), parseCoord(urgency.location[1]));
+            return;
+        }
+
+        // Check if another emergency is active
         if (activeEmergencyId !== null && activeEmergencyId !== emergencyId) {
             Alert.alert("Blocare", "O altă intervenție este activă. Finalizați sau așteptați acea intervenție.");
             return;
         }
 
-        // mark this emergency as the active one (locks other items)
-        if (activeEmergencyId === null) setActiveEmergencyId(emergencyId);
-
-        // 3. Check if already intervening (UX optimization)
-        if (isUserIntervening(emergencyId, userId)) {
-            openInMaps(parseCoord(urgency.location[0]), parseCoord(urgency.location[1]));
-            return;
-        }
-
+        // Set this as the active emergency BEFORE starting the application
+        setActiveEmergencyId(emergencyId);
         setIsApplying(true);
 
         try {
-            const url = API_BASE; // Fixed missing semicolon
-
-            // 3. Use encodeURIComponent for safety, even if IDs are usually simple
-            const requestUrl = `${url}/api/UserManager/ApplyFor?EmergencyId=${encodeURIComponent(emergencyId)}&UserId=${encodeURIComponent(userId)}`;
+            const url = API_BASE;
+            const requestUrl = `${url}/api/UserManager/ApplyFor?EmergencyId=${emergencyId}&UserId=${userId}`;
 
             const response = await fetch(requestUrl, {
                 method: 'POST',
@@ -168,22 +195,19 @@ const HomePage: React.FC = () => {
                 }
             });
 
-            // 4. Safer JSON parsing. Check status before parsing.
             let data;
             try {
                 data = await response.json();
             } catch (e) {
-                // If response isn't JSON (e.g., 500 HTML error), this catches it
                 throw new Error(`Server returned status ${response.status} but invalid JSON.`);
             }
 
             console.log("API Response:", data);
 
             if (response.ok && data.error === null) {
-                // Safe parsing of the comma-separated names list
                 const namesList = data.names
                     ? data.names.split(',').map((name: string) => name.trim()).filter((name: string) => name.length > 0)
-                    : [userId];
+                    : [userData.username];
 
                 const newInterventions = {
                     ...interveningEmergencies,
@@ -195,7 +219,6 @@ const HomePage: React.FC = () => {
 
                 setDetailsVisible(false);
 
-                // 5. UX Improvement: Open map ONLY after user clicks "OK" on the alert
                 Alert.alert(
                     "Succes",
                     "Ați început intervenția! Se deschide harta.",
@@ -213,20 +236,21 @@ const HomePage: React.FC = () => {
                 console.log("API Logic Error:", data.error);
                 const errorMessage = data.error || "A apărut o eroare necunoscută.";
                 Alert.alert("Eroare intervenție", errorMessage);
-                // if this call had set the activeEmergencyId, clear it because it failed
-                if (activeEmergencyId === emergencyId) setActiveEmergencyId(null);
+
+                setActiveEmergencyId(null);
             }
 
         } catch (error) {
             console.error("Error applying for emergency:", error);
             const msg = error instanceof Error ? error.message : "Nu s-a putut contacta serverul.";
             Alert.alert("Eroare", msg);
-            if (activeEmergencyId === emergencyId) setActiveEmergencyId(null);
+            setActiveEmergencyId(null);
         } finally {
             setIsApplying(false);
         }
     }
-    const handleRefreshUrgencies = async () => {
+
+    const handleRefreshUrgencies = async (): Promise<number[]> => {
         const url = API_BASE;
         setIsRefreshing(true);
         try {
@@ -237,18 +261,18 @@ const HomePage: React.FC = () => {
             const data = await response.json();
 
             if (response.ok) {
-                console.log("Urgencies refreshed:");
                 const listOfUrgencies: databaseUrgency[] = data.ems;
                 setUrgencies(listOfUrgencies);
+                return listOfUrgencies.map(u => u.id);
             }
         } catch (error) {
             console.error("Error refreshing urgencies:", error);
         } finally {
             setIsRefreshing(false);
         }
+        return [];
     };
 
-    // Removed the incorrect useEffect for isInterveningInSelected
 
     const loadUserData = async () => {
         try {
@@ -298,7 +322,6 @@ const HomePage: React.FC = () => {
                     }
                 }
 
-                // Fallback for web/non-expo
                 if (navigator && (navigator as any).geolocation) {
                     (navigator as any).geolocation.getCurrentPosition(
                         (pos: any) => setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
@@ -314,36 +337,15 @@ const HomePage: React.FC = () => {
         getLocation();
     }, []);
 
-    const toRad = (v: number) => (v * Math.PI) / 180;
-    const distanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 6371; // km
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    };
-
-    const openInMaps = (lat: number, lon: number) => {
-        const latStr = lat.toString();
-        const lonStr = lon.toString();
-        // Corrected Google Maps URL format
-        const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${latStr},${lonStr}`;
-        const wazeUrl = `https://waze.com/ul?ll=${latStr},${lonStr}&navigate=yes`;
 
 
-        Linking.openURL(googleUrl).catch(() => {
-            Linking.openURL(wazeUrl).catch((err) => console.warn("Could not open maps:", err));
-        });
-    };
-
-    const closeUrgencies = userLocation 
+    const closeUrgencies = userLocation
         ? urgencies.filter(u => {
             const dist = distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y);
-            return dist <= 2;
+            return dist <= 2.00;
         })
         : urgencies;
-    
+
     const makeLeafletHtml = (markers: databaseUrgency[]) => {
         const points = markers.map(m => ({
             lat: m.location_X,
@@ -377,7 +379,7 @@ const HomePage: React.FC = () => {
 
     // Calculate this value just before render, or use useMemo if complex
     const isInterveningInSelected = useMemo(() => {
-        return selectedUrgency && userData ? isUserIntervening(selectedUrgency.id, userData.username) : false;
+        return selectedUrgency && userData ? isUserIntervening(interveningEmergencies, selectedUrgency.id, userData.username) : false;
     }, [selectedUrgency, userData, interveningEmergencies]);
 
 
@@ -434,7 +436,6 @@ const HomePage: React.FC = () => {
                                     ))}
                                 </MapView>
                             ) : hasWebView && WebView ? (
-                                // Render a Leaflet map inside WebView as a development-friendly fallback
                                 <WebView
                                     originWhitelist={["*"]}
                                     source={{ html: makeLeafletHtml(closeUrgencies) }}
@@ -460,15 +461,14 @@ const HomePage: React.FC = () => {
                             <View style={styles.urgencyList}>
                                 {closeUrgencies.map((u, i) => {
                                     const dist = userLocation ? distanceKm(userLocation.latitude, userLocation.longitude, u.location_X, u.location_Y) : null;
-                                    // Determine severity color based on level
                                     const getSeverityColor = (level: number) => {
                                         if (level >= 8) return theme.colors.errorContainer;
                                         if (level >= 5) return theme.colors.secondary;
                                         return theme.colors.tertiary;
                                     };
                                     const severityColor = getSeverityColor(u.level);
-                                    const isIntervening = userData ? isUserIntervening(u.id, userData.username) : false;
-
+                                    const isIntervening = userData ? isUserIntervening(interveningEmergencies, u.id, userData.username) : false;
+                                    const interveners = interveningEmergencies[u.id] || [];
                                     return (
                                         <TouchableOpacity
                                             key={i}
@@ -481,12 +481,13 @@ const HomePage: React.FC = () => {
                                             onPress={() => {
                                                 // prevent click if another emergency is active
                                                 if (activeEmergencyId !== null && activeEmergencyId !== u.id) return;
+
                                                 const urgencyDetails: Urgenta = {
                                                     name: u.name,
                                                     description: u.description,
                                                     location: [u.location_X.toString(), u.location_Y.toString()],
                                                     score: u.level,
-                                                    count: 0,
+                                                    count: interveners.length,
                                                     id: u.id,
                                                 }
                                                 setSelectedUrgency(urgencyDetails);
@@ -504,20 +505,20 @@ const HomePage: React.FC = () => {
                                                 <View style={styles.urgencyTitleRow}>
                                                     <Text style={styles.urgencyTitle}>{u.name}</Text>
                                                 </View>
-                                                
+
                                                 {u.description ? (
                                                     <Text style={styles.urgencyDescription} numberOfLines={2}>{u.description}</Text>
                                                 ) : null}
-                                                
+
                                                 <View style={styles.urgencyMetas}>
                                                     <View style={styles.metaItem}>
                                                         <MaterialIcons name="place" size={16} color={theme.colors.secondary} />
-                                                        <Text style={styles.metaText}>{dist != null ? `${dist.toFixed(1)} km` : '—'}</Text>
+                                                        <Text style={styles.metaText}>{dist != null ? `${dist.toFixed(2)} km` : '—'}</Text>
                                                     </View>
                                                     <View style={styles.metaDivider} />
                                                     <View style={styles.metaItem}>
                                                         <MaterialIcons name="group" size={16} color={theme.colors.primary} />
-                                                        <Text style={styles.metaText}>0 Aplicanti</Text>
+                                                        <Text style={styles.metaText}>{interveners.length}</Text>
                                                     </View>
                                                 </View>
                                             </View>
@@ -575,7 +576,7 @@ const HomePage: React.FC = () => {
                                     </View>
 
                                     {/* Close button (top-left) */}
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.closeButtonOverlay}
                                         onPress={() => setDetailsVisible(false)}
                                     >
@@ -608,7 +609,7 @@ const HomePage: React.FC = () => {
                                                         <MaterialIcons name="place" size={20} color={theme.colors.secondary} />
                                                         <View style={styles.infoStatText}>
                                                             <Text style={styles.infoStatLabel}>Distanță</Text>
-                                                            <Text style={styles.infoStatValue}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(1)} km</Text>
+                                                            <Text style={styles.infoStatValue}>{distanceKm(userLocation.latitude, userLocation.longitude, parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1])).toFixed(2)} km</Text>
                                                         </View>
                                                     </View>
                                                 ) : null}
@@ -616,7 +617,7 @@ const HomePage: React.FC = () => {
 
                                             {/* Action buttons */}
                                             <View style={styles.actionButtonsCard}>
-                                                <TouchableOpacity 
+                                                <TouchableOpacity
                                                     style={styles.primaryActionButton}
                                                     onPress={() => handleIntervene(selectedUrgency)}
                                                 >
@@ -624,7 +625,7 @@ const HomePage: React.FC = () => {
                                                     <Text style={styles.primaryActionText}>Intervine</Text>
                                                 </TouchableOpacity>
 
-                                                <TouchableOpacity 
+                                                <TouchableOpacity
                                                     style={styles.secondaryActionButton}
                                                     onPress={() => openInMaps(parseCoord(selectedUrgency.location[0]), parseCoord(selectedUrgency.location[1]))}
                                                 >
@@ -796,7 +797,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         overflow: "hidden",
         marginBottom: 12,
-        marginTop:30,
+        marginTop: 30,
     },
     map: {
         width: "100%",
