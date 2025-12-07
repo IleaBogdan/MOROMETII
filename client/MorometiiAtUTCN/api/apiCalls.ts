@@ -1,16 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 
-export const API_BASE = "http://192.168.232.182:5024";
+export const API_BASE = "http://192.168.35.203:5024";
 
 interface LoginResponse {
-  Error: string | null;
-  IsValid: boolean;
-  Id: number;
-  Username: string | null;
-  isVerified: boolean;
   EmCount: number;
-  certification_img: string | null;
+  Error: string | null;
+  Id: number;
+  IsValid: boolean;
+  isVerified: boolean;
+  Username: string | null;
+  isImage: boolean;
   reputation: number | null;
 }
 
@@ -43,10 +43,10 @@ export async function handleSignIn(
     if (error.name === "AbortError") {
       Alert.alert("Timeout", "Serverul nu răspunde.");
     } else {
-      Alert.alert(
-        "Eroare de Rețea",
-        `Nu se poate conecta la server.\n\nIP Server: ${API_BASE}\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni\n\nEroare: ${error.message}`
-      );
+      //   Alert.alert(
+      //     "Eroare de Rețea",
+      //     `Nu se poate conecta la server.\n\nIP Server: ${API_BASE}\n\nVerifică:\n• Ambele dispozitive sunt pe aceeași rețea WiFi\n• Serverul C# rulează\n• Firewall-ul permite conexiuni\n\nEroare: ${error.message}`
+      //   );
     }
     return null;
   } finally {
@@ -59,22 +59,11 @@ export async function _handleSignUp(
   name: string,
   email: string,
   password: string,
-  confirmPassword: string,
   router: any
 ) {
   // Validate inputs
-  if (
-    !name.trim() ||
-    !email.trim() ||
-    !password.trim() ||
-    !confirmPassword.trim()
-  ) {
+  if (!name.trim() || !email.trim() || !password.trim()) {
     Alert.alert("Eroare", "Te rugăm să completezi toate câmpurile");
-    return null;
-  }
-
-  if (password !== confirmPassword) {
-    Alert.alert("Eroare", "Parolele nu se potrivesc");
     return null;
   }
 
@@ -83,12 +72,11 @@ export async function _handleSignUp(
     return null;
   }
 
-  // Basic email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    Alert.alert("Eroare", "Email invalid");
-    return null;
-  }
+  //   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  //   if (!emailRegex.test(email)) {
+  //     Alert.alert("Eroare", "Email invalid");
+  //     return null;
+  //   }
 
   setLoading(true);
   try {
@@ -149,6 +137,7 @@ export async function _handleSignUp(
     setLoading(false);
   }
 }
+
 export async function checkLogin(email: string, password: string) {
   try {
     const encodedEmail = email.trim();
@@ -181,8 +170,11 @@ export async function checkLogin(email: string, password: string) {
       await AsyncStorage.setItem("password", password);
       await AsyncStorage.setItem("isVerified", data.isVerified.toString());
 
-      if (data.certification_img) {
-        await AsyncStorage.setItem("certification_img", data.certification_img);
+      if (data.isImage) {
+        await AsyncStorage.setItem(
+          "certification_img",
+          data.isImage === true ? "true" : "false"
+        );
       }
       if (data.reputation !== undefined && data.reputation !== null) {
         await AsyncStorage.setItem("reputation", data.reputation.toString());

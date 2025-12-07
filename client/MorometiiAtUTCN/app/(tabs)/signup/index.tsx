@@ -3,7 +3,7 @@ import { useDynamicTheme } from "@/theme/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RelativePathString, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 const theme = useDynamicTheme();
 
@@ -24,12 +24,17 @@ const SignUpPage: React.FC = () => {
             Alert.alert("Passwords do not match!");
             return null;
         }
-        const result = await _handleSignUp(setLoading, username, email, password, confirmpassword, router);
+        const result = await _handleSignUp(setLoading, username, email, password, router);
         if (result && result.data && result.data.IsValid && result.response.ok) {
             await AsyncStorage.multiSet([
-                ['username', username],
+                ['username', result.data.Username || ''],
                 ['email', email.trim()],
-                ['password', password.trim()]
+                ['password', password.trim()],
+                ['isVerified', result.data.isVerified ? 'true' : 'false'],
+                ['certification_img', 'false'],
+                ['reputation', '0'],
+                ['events', '0'],
+                ['id', result.data.Id.toString()],
             ]);
             router.push("/(tabs)/acasa" as RelativePathString);
         } else {
@@ -42,6 +47,9 @@ const SignUpPage: React.FC = () => {
 
     return (
         <View style={styles.container}>
+            <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+            
+
             <Text style={styles.title}>Înregistrare</Text>
 
             <TextInput
@@ -158,9 +166,18 @@ const styles = StyleSheet.create({
         backgroundColor: "#ccc",
     },
     buttonText: {
-        color: theme.colors.onBackground,
+        color: theme.colors.onPrimary,
         fontSize: 18,
         fontWeight: "bold",
+    },
+    logo: {
+        width: 250,
+        height: 250,
+        marginBottom: 20,
+        position: 'absolute',
+        top: 28,
+        zIndex: 10,
+        alignSelf: 'center',
     },
 });
 

@@ -35,6 +35,7 @@ namespace server.Controllers
             public int EmCount { get; set; }
             public int Reputation {  get; set; }
             public bool IsImage {  get; set; }
+            public bool IsAdmin { get; set; }
         }
 
         [HttpGet]
@@ -59,7 +60,8 @@ namespace server.Controllers
                             isVerified,
                             EmCount,
                             IsImage,
-                            Reputation
+                            Reputation,
+                            isAdmin
                         FROM Users 
                         WHERE Email=@Email AND Password=@Password";
 
@@ -98,6 +100,10 @@ namespace server.Controllers
                     ? 0  // default to 0 if null
                     : reader.GetInt32(reader.GetOrdinal("Reputation"));
 
+                bool isAdmin = reader.IsDBNull(reader.GetOrdinal("IsAdmin"))
+                    ? false  // default to false if null
+                    : reader.GetBoolean(reader.GetOrdinal("IsAdmin"));
+
                 return Ok(new LoginResponse
                 {
                     Error = null,
@@ -107,7 +113,8 @@ namespace server.Controllers
                     isVerified = isVerified,
                     EmCount = emCount,
                     IsImage= isImage,
-                    Reputation = reputation
+                    Reputation = reputation,
+                    IsAdmin = isAdmin
                 });
             }
             else

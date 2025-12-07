@@ -2,13 +2,15 @@ import { API_BASE } from "@/api/apiCalls";
 import { theme } from "@/theme/theme";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { RelativePathString, router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
     Modal,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -20,7 +22,7 @@ interface UserData {
     username: string;
     email: string;
     isVerified: boolean;
-    certification_img: string | null;
+    certification_img: boolean;
     reputation: number | null;
     events: number | null;
     id: number;
@@ -30,10 +32,26 @@ const AccountPage: React.FC = () => {
     const [userData, setUserData] = useState<UserData | null>(null);
     const [photoModalVisible, setPhotoModalVisible] = useState(false);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     useEffect(() => {
-        loadUserData();
+        const initialize = async () => {
+            await loadUserData();
+        };
+        initialize();
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            // Reload user data whenever this screen gains focus (e.g. after login)
+            loadUserData();
+        }, [])
+    );
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await loadUserData();
+        setTimeout(() => setIsRefreshing(false), 1000);
+    };
 
 
     const handleLogout = async () => {
@@ -53,6 +71,7 @@ const AccountPage: React.FC = () => {
 
                             const keys = await AsyncStorage.getAllKeys();
                             await AsyncStorage.multiRemove(keys);
+                            await AsyncStorage.clear();
 
                             router.replace("/(tabs)/signin" as RelativePathString);
                         } catch (error) {
@@ -64,8 +83,63 @@ const AccountPage: React.FC = () => {
             ]
         );
     };
-
     const loadUserData = async () => {
+        try {
+            const email = await AsyncStorage.getItem("email");
+            const password = await AsyncStorage.getItem("password");
+
+            if (!email || !password) {
+                console.error("No credentials found in storage");
+                await loadCachedUserData();
+                return;
+            }
+
+            const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodeURIComponent(email)}&Password=${encodeURIComponent(password)}`;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            try {
+                const response = await fetch(url, {
+                    method: "GET",
+                    signal: controller.signal,
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result) {
+                    await AsyncStorage.multiSet([
+                        ['username', result.username || ''],
+                        ['isVerified', result.isVerified ? 'true' : 'false'],
+                        ['certification_img', result.isImage === true ? 'true' : 'false'],
+                        ['reputation', result.reputation !== undefined ? result.reputation.toString() : '0'],
+                        ['events', result.emCount !== undefined ? result.emCount.toString() : '0'],
+                        ['id', result.id ? result.id.toString() : '0'],
+                    ]);
+                }
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                console.error("Fetch error:", fetchError);
+                if (!isRefreshing) {
+                    console.warn("Failed to fetch updated data, using cached data");
+                }
+            }
+
+            await loadCachedUserData();
+
+        } catch (error) {
+            console.error("Error in loadUserData:", error);
+            await loadCachedUserData();
+        }
+    };
+
+    const loadCachedUserData = async () => {
         try {
             const username = await AsyncStorage.getItem("username");
             const email = await AsyncStorage.getItem("email");
@@ -74,17 +148,18 @@ const AccountPage: React.FC = () => {
             const reputation = await AsyncStorage.getItem("reputation");
             const events = await AsyncStorage.getItem("events");
             const id = await AsyncStorage.getItem("id");
+
             setUserData({
                 username: username || "",
                 email: email || "",
                 isVerified: isVerified === 'true',
-                certification_img: certification_img || null,
+                certification_img: certification_img === 'true',
                 reputation: reputation ? parseInt(reputation) : 0,
                 events: events ? parseInt(events) : 0,
                 id: id ? parseInt(id) : 0,
             });
         } catch (error) {
-            console.error("Error loading user data:", error);
+            console.error("Error loading cached user data:", error);
             Alert.alert("Eroare", "Nu s-au putut încărca datele utilizatorului");
         }
     };
@@ -156,7 +231,7 @@ const AccountPage: React.FC = () => {
             } as any);
             formData.append("UserId", String(userId));
 
-            const response = await fetch(API_BASE+"/api/UserManager/UploadCertificate", {
+            const response = await fetch(API_BASE + "/api/UserManager/UploadCertificate", {
                 method: "POST",
                 body: formData,
                 // Don't set Content-Type; let fetch add the multipart boundary
@@ -169,12 +244,10 @@ const AccountPage: React.FC = () => {
             const resJson = await response.json().catch(() => null);
 
             if (response.ok) {
-                // Store that the user uploaded a certificate and mark as verified/pending
-                await AsyncStorage.setItem("certification_img", fileName);
-                await AsyncStorage.setItem("isVerified", "true");
-                setUserData(prev => prev ? { ...prev, certification_img: fileName, isVerified: true } : prev);
-
-                Alert.alert("Succes!", (resJson && resJson.message) ? resJson.message : "Diploma a fost încărcată cu succes");
+                await AsyncStorage.setItem("certification_img", "true");
+                await AsyncStorage.setItem("is_validated", "true");
+                setUserData(prev => prev ? { ...prev, certification_img: true, is_validated: true } : null);
+                Alert.alert("Succes!", "Diploma a fost încărcată cu succes");
                 setPhotoModalVisible(false);
             } else {
                 const message = (resJson && resJson.message) ? resJson.message : "Nu s-a putut încărca diploma";
@@ -199,133 +272,155 @@ const AccountPage: React.FC = () => {
     }
 
     return (
-        <ScrollView style={styles.container}>
-            {/* User Info */}
-            <View style={styles.userInfoSection}>
-                <View style={styles.logoutContainer}>
-                    <TouchableOpacity
-                        style={styles.logoutButton}
-                        onPress={handleLogout}
-                        activeOpacity={0.7}
-                    >
-                        <MaterialIcons name="logout" size={15} color={theme.colors.error} />
-                        <Text style={styles.logoutText}>Ieșire</Text>
-                    </TouchableOpacity>
+        <ScrollView style={styles.container}
+            refreshControl={
+                <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={handleRefresh}
+                    tintColor={theme.colors.primary}
+                    colors={[theme.colors.primary]}
+                />
+            }
+        >
+            {/* Profile Header Card */}
+            <View style={styles.profileCard}>
+                <View style={styles.avatarContainer}>
+                    <MaterialIcons name="account-circle" size={80} color={theme.colors.primary} />
                 </View>
-                <Text style={styles.userGreeting}>Bine ai venit, {userData.username}!</Text>
-                <Text style={styles.userEmail}>{userData.email}</Text>
-                {userData.isVerified && (
-                    <Text style={styles.certifiedBadge}>✓ Certificat</Text>
-                )}
+                <View style={styles.profileInfo}>
+                    <Text style={styles.profileName}>{userData.username}</Text>
+                    <Text style={styles.profileEmail}>{userData.email}</Text>
+                    {userData.isVerified && (
+                        <View style={styles.certificationBadgeContainer}>
+                            <MaterialIcons name="verified" size={16} color={theme.colors.onTertiary} />
+                            <Text style={styles.certificationBadgeText}>Certificat verificat</Text>
+                        </View>
+                    )}
+                </View>
             </View>
 
-            {(userData.isVerified && userData.certification_img) && (
+            {/* Stats Section */}
+            <View style={styles.statsSection}>
+                <View style={styles.statCard}>
+                    <MaterialIcons name="star" size={24} color={theme.colors.secondary} />
+                    <Text style={styles.statLabel}>Reputație</Text>
+                    <Text style={styles.statValue}>{userData.reputation || 0}</Text>
+                </View>
+                <View style={styles.statCard}>
+                    <MaterialIcons name="event-available" size={24} color={theme.colors.primary} />
+                    <Text style={styles.statLabel}>evenimente</Text>
+                    <Text style={styles.statValue}>{userData.events || 0}</Text>
+                </View>
+            </View>
 
-                <View>
-                    <View style={styles.certificationInfo}>
-                        <View style={styles.stat_container}>
-                            <View style={styles.stat_element}>
-                                <MaterialIcons name="military-tech" size={80} color={theme.colors.secondary} />
-                                <Text style={styles.stat_element_text}>Reputation</Text>
-                            </View>
-                            <View style={styles.stat_element}>
-                                <Text style={styles.stat_text}>{userData.reputation}</Text>
-                            </View>
-                        </View>
+            {/* Certification Section */}
+            {(!userData.isVerified && !userData.certification_img) && (
+                <View style={styles.certificationSection}>
+                    <View style={styles.sectionHeader}>
+                            <MaterialIcons name="security" size={28} color={theme.colors.secondary} />
+                        <Text style={styles.sectionTitle}>Certificare Necesară</Text>
                     </View>
-                    <View style={styles.certificationInfo}>
-                        <View style={styles.stat_container}>
-                            <View style={styles.stat_element}>
-                                <MaterialIcons name="event-available" size={80} color={theme.colors.primaryContainer} />
-                                <Text style={styles.stat_element_text}>Events</Text>
-                            </View>
-                            <View style={styles.stat_element}>
-                                <Text style={styles.stat_text}>{userData.reputation}</Text>
-                            </View>
+                    
+                    <Text style={styles.certificationDescription}>
+                        Pentru a te putea oferi voluntar, trebuie să demonstrezi că ai cunoștințele necesare de prim ajutor. Încarcă un certificat valid emis de o organizație recunoscută.
+                    </Text>
+
+                    <TouchableOpacity
+                        style={styles.uploadCertButton}
+                        onPress={() => handleSelectCertification("diploma")}
+                    >
+                        <MaterialIcons name="cloud-upload" size={24} color="white" />
+                        <View style={styles.uploadButtonText}>
+                            <Text style={styles.uploadButtonTitle}>Încarcă Certificat</Text>
+                            <Text style={styles.uploadButtonSubtitle}>Diploma de prim ajutor</Text>
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 </View>
             )}
-            {(!userData.isVerified) && (
-                <View style={styles.packagesSection}>
-                    <View style={styles.certificationInfo}>
-                        <Text style={styles.infoTitle}>De ce este necesară certificarea?</Text>
-                        <Text style={styles.infoDescription}>
-                            Pentru a crea un sistem funcțional și încredințat, utilizatorii care doresc să activeze în calitate de voluntari trebuie să ne prezinte certificatul emis de o organizație de voluntari (ex: Crucea Roșie) care atestă faptul că știu cum să acorde primul ajutor.
-                        </Text>
-                        <Text style={styles.infoDescription}>
-                            Certificatul tău garantează că ești pregătit pentru situații de urgență și că poți ajuta în mod eficient și sigur.
-                        </Text>
 
-                        <Text style={styles.sectionTitle}>Prezintă-ți Certificatul:</Text>
-                        <TouchableOpacity
-                            style={styles.packageCard}
-                            onPress={() => handleSelectCertification("diploma")}
-                        >
-                            <Text style={styles.packageTitle}>Certificat de Voluntar</Text>
-                            <Text style={styles.packageDescription}>
-                                Încarcă certificatul emis de o organizație recunoscută care atestă că ești pregătit pentru prim ajutor
-                            </Text>
-                            <View style={styles.photo_icon}>
-                                <MaterialIcons name="photo-camera" size={80} color="white" />
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
+            {/* Pending Verification */}
             {(!userData.isVerified && userData.certification_img) && (
-                <View style={styles.packagesSection}>
-                    {/* Certification Info */}
-                    <View style={styles.verificareInfo}>
-                        <Text style={styles.infoTitle}>Certificare în curs de procesare!</Text>
-                        <Text style={styles.infoDescription}>
-                            Te rugăm să aștepți până când unui dintre adminisratorii noștrii iți validează certificatul furnizar!
-                        </Text>
-                        <Text style={styles.infoDescription}>
-                            Certificatul tău garantează că ești pregătit pentru situații de urgență și că poți ajuta în mod eficient și sigur.
-                        </Text>
+                <View style={styles.pendingSection}>
+                    <View style={styles.pendingHeader}>
+                        <MaterialIcons name="schedule" size={28} color={theme.colors.secondary} />
+                        <Text style={styles.pendingTitle}>Verificare în curs</Text>
+                    </View>
+                    
+                    <Text style={styles.pendingDescription}>
+                        Certificatul tău a fost primit! Așteptăm confirmarea de la administratorii noștri. Vei fi notificat când va fi aprobat.
+                    </Text>
 
-                        <Text style={styles.sectionTitle}>Ne vedem în curând...</Text>
+                    <View style={styles.progressBar}>
+                        <View style={styles.progressFill} />
                     </View>
                 </View>
             )}
 
-            {/* Photo Upload Modal - Diploma */}
+            {/* Action Section */}
+            <View style={styles.actionSection}>
+                <TouchableOpacity
+                    style={styles.logoutButton}
+                    onPress={handleLogout}
+                    activeOpacity={0.7}
+                >
+                    <MaterialIcons name="logout" size={18} color={theme.colors.onTertiary} />
+                    <Text style={styles.logoutText}>Deconectare</Text>
+                </TouchableOpacity>
+            </View>
+
+            <View style={{ height: 40 }} />
+
+            {/* Photo Upload Modal */}
             <Modal visible={photoModalVisible} transparent animationType="slide">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Încarcă Diploma</Text>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Selectează sursă</Text>
+                            <TouchableOpacity
+                                onPress={() => setPhotoModalVisible(false)}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <MaterialIcons name="close" size={24} color={theme.colors.onBackground} />
+                            </TouchableOpacity>
+                        </View>
 
                         {uploadingPhoto ? (
-                            <ActivityIndicator size="large" color={theme.colors.primary} />
+                            <View style={styles.uploadingContainer}>
+                                <ActivityIndicator size="large" color={theme.colors.primary} />
+                                <Text style={styles.uploadingText}>Se încarcă...</Text>
+                            </View>
                         ) : (
-                            <>
+                            <View style={styles.modalButtonsContainer}>
                                 <TouchableOpacity
-                                    style={styles.modalButton}
+                                    style={styles.modalActionButton}
                                     onPress={handleTakePhoto}
                                 >
-                                    <Text style={styles.modalButtonText}>Fă o Fotografie</Text>
+                                    <MaterialIcons name="camera-alt" size={32} color={theme.colors.primary} />
+                                    <Text style={styles.modalActionTitle}>Fotografiază</Text>
+                                    <Text style={styles.modalActionSubtitle}>Fă o fotografie nouă</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={styles.modalButton}
+                                    style={styles.modalActionButton}
                                     onPress={handleDiplomaUpload}
                                 >
-                                    <Text style={styles.modalButtonText}>Selectează din Galerie</Text>
+                                    <MaterialIcons name="photo-library" size={32} color={theme.colors.secondary} />
+                                    <Text style={styles.modalActionTitle}>Din Galerie</Text>
+                                    <Text style={styles.modalActionSubtitle}>Selectează din dispozitiv</Text>
                                 </TouchableOpacity>
-                            </>
+                            </View>
                         )}
 
                         <TouchableOpacity
-                            style={styles.modalCloseButton}
+                            style={styles.modalDismissButton}
                             onPress={() => setPhotoModalVisible(false)}
                         >
-                            <Text style={styles.modalCloseButtonText}>Anulează</Text>
+                            <Text style={styles.modalDismissText}>Anulează</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
-        </ScrollView>
+        </ScrollView >
     );
 };
 
@@ -334,55 +429,279 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: theme.colors.background,
         padding: 20,
+        paddingTop: 80,
+        paddingBottom: 16,
     },
-    logoutContainer: {
-        position: 'absolute',
-        right: 10,
-        top: 10,
-    },
-    logoutButton: {
+
+    /* Profile Section */
+    profileCard: {
+        backgroundColor: theme.colors.backdrop,
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 24,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.colors.errorContainer || 'rgba(255, 0, 0, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
+        shadowColor: theme.colors.background,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    avatarContainer: {
+        marginRight: 16,
+    },
+    profileInfo: {
+        flex: 1,
+    },
+    profileName: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: theme.colors.onBackground,
+        marginBottom: 4,
+    },
+    profileEmail: {
+        fontSize: 13,
+        color: theme.colors.onBackground,
+        opacity: 0.7,
+        marginBottom: 8,
+    },
+    certificationBadgeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: 6,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        backgroundColor: theme.colors.onTertiaryContainer,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+    },
+    certificationBadgeText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: theme.colors.onTertiary,
+    },
 
-        minWidth: 44,
-        minHeight: 44,
+    /* Stats Section */
+    statsSection: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 24,
+    },
+    statCard: {
+        flex: 1,
+        backgroundColor: theme.colors.backdrop,
+        borderRadius: 16,
+        padding: 16,
+        alignItems: 'center',
         justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    statLabel: {
+        fontSize: 12,
+        color: theme.colors.onBackground,
+        opacity: 0.7,
+        marginTop: 8,
+    },
+    statValue: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: theme.colors.primary,
+        marginTop: 4,
+    },
+
+    /* Certification Section */
+    certificationSection: {
+        backgroundColor: theme.colors.backdrop,
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 24,
+        borderLeftWidth: 4,
+        borderLeftColor: theme.colors.secondary,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 16,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: theme.colors.onBackground,
+    },
+    certificationDescription: {
+        fontSize: 13,
+        color: theme.colors.onBackground,
+        opacity: 0.75,
+        lineHeight: 20,
+        marginBottom: 16,
+    },
+    uploadCertButton: {
+        backgroundColor: theme.colors.primary,
+        borderRadius: 16,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginTop: 8,
+    },
+    uploadButtonText: {
+        flex: 1,
+    },
+    uploadButtonTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: theme.colors.onPrimary,
+    },
+    uploadButtonSubtitle: {
+        fontSize: 12,
+        color: theme.colors.onPrimary,
+        opacity: 0.85,
+        marginTop: 2,
+    },
+
+    /* Pending Section */
+    pendingSection: {
+        backgroundColor: theme.colors.backdrop,
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 24,
+        borderLeftWidth: 4,
+        borderLeftColor: theme.colors.secondary,
+    },
+    pendingHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 12,
+    },
+    pendingTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: theme.colors.onBackground,
+    },
+    pendingDescription: {
+        fontSize: 13,
+        color: theme.colors.onBackground,
+        opacity: 0.75,
+        lineHeight: 20,
+        marginBottom: 16,
+    },
+    progressBar: {
+        height: 6,
+        backgroundColor: theme.colors.background,
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    progressFill: {
+        height: '100%',
+        width: '35%',
+        backgroundColor: theme.colors.secondary,
+    },
+
+    /* Action Section */
+    actionSection: {
+        marginBottom: 24,
+    },
+    logoutButton: {
+        backgroundColor: theme.colors.error,
+        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     logoutText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: theme.colors.error,
+        fontSize: 16,
+        fontWeight: '700',
+        color: theme.colors.onTertiary,
     },
-    stat_container: {
+
+    /* Modal Styles */
+    modalOverlay: {
         flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
         backgroundColor: theme.colors.background,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         padding: 20,
-        flexDirection: 'row',        // ← put elements horizontally
+        paddingBottom: 32,
     },
-    stat_text: {
-        color: theme.colors.onBackground,
-        fontSize: 30,
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
     },
-    stat_element_text: {
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
         color: theme.colors.onBackground,
     },
-    stat_element: {
-        flex: 1,
+    uploadingContainer: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    uploadingText: {
+        fontSize: 14,
         color: theme.colors.onBackground,
+        marginTop: 12,
+    },
+    modalButtonsContainer: {
+        gap: 12,
+        marginBottom: 16,
+    },
+    modalActionButton: {
+        backgroundColor: theme.colors.backdrop,
+        borderRadius: 16,
+        padding: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.outline,
+        opacity: 0.9,
+    },
+    modalActionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: theme.colors.onBackground,
+        marginTop: 8,
+    },
+    modalActionSubtitle: {
+        fontSize: 12,
+        color: theme.colors.onBackground,
+        opacity: 0.6,
+        marginTop: 2,
+    },
+    modalDismissButton: {
         borderRadius: 12,
-        justifyContent: 'center', // center on Y axis
-        alignItems: 'center',     // center on X axis
+        paddingVertical: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: theme.colors.outline,
     },
-    photo_icon: {
-        flex: 1,                 // Fill the screen
-        justifyContent: 'center', // Center vertically
-        alignItems: 'center',     // Center horizontally (X-axis)
+    modalDismissText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.onBackground,
     },
+
+    /* Legacy styles - keeping for backward compatibility */
     userInfoSection: {
         marginBottom: 30,
         paddingBottom: 20,
@@ -399,107 +718,9 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     certifiedBadge: {
-        fontSize: 14,
+        paddingTop: 20,
+        fontSize: 18,
         color: theme.colors.primary,
-        fontWeight: "bold",
-    },
-    certificationInfo: {
-        backgroundColor: theme.colors.backdrop,
-        borderRadius: 12,
-        padding: 15,
-        marginBottom: 30,
-    },
-    verificareInfo: {
-        backgroundColor: theme.colors.inversePrimary,
-        borderRadius: 12,
-        padding: 15,
-        marginBottom: 30,
-    },
-    infoTitle: {
-        fontSize: 22,
-        fontWeight: "bold",
-        color: theme.colors.onBackground,
-        marginBottom: 10,
-    },
-    infoDescription: {
-        fontSize: 14,
-        color: theme.colors.onBackground,
-        lineHeight: 20,
-    },
-    packagesSection: {
-        marginBottom: 30,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        color: theme.colors.inverseSurface,
-        marginBottom: 15,
-        marginTop: 15,
-    },
-    packageCard: {
-        backgroundColor: theme.colors.secondary,
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 15,
-    },
-    packageTitle: {
-        fontSize: 22,
-        fontWeight: "bold",
-        color: theme.colors.onBackground,
-        marginBottom: 10,
-    },
-    packageDescription: {
-        fontSize: 14,
-        color: theme.colors.onBackground,
-        marginBottom: 15,
-        lineHeight: 20,
-    },
-    packageAction: {
-        fontSize: 14,
-        fontWeight: "bold",
-        color: "#FFD700",
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        justifyContent: "flex-end",
-    },
-    modalContent: {
-        backgroundColor: theme.colors.background,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        padding: 20,
-        minHeight: 300,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        color: theme.colors.outline,
-        marginBottom: 20,
-        textAlign: "center",
-    },
-    modalButton: {
-        backgroundColor: theme.colors.primary,
-        borderRadius: 8,
-        padding: 15,
-        marginBottom: 12,
-        alignItems: "center",
-    },
-    modalButtonText: {
-        color: theme.colors.onBackground,
-        fontSize: 16,
-        fontWeight: "bold",
-    },
-    modalCloseButton: {
-        backgroundColor: theme.colors.error,
-        borderRadius: 8,
-        padding: 15,
-        alignItems: "center",
-        marginTop: 10,
-    },
-    modalCloseButtonText: {
-        color: theme.colors.background,
-        fontSize: 16,
         fontWeight: "bold",
     },
 });
