@@ -375,8 +375,6 @@ const HomePage: React.FC = () => {
     </body>
 </html>`;
     };
-
-    // Calculate this value just before render, or use useMemo if complex
     const isInterveningInSelected = useMemo(() => {
         return selectedUrgency && userData ? isUserIntervening(interveningEmergencies, selectedUrgency.id, userData.username) : false;
     }, [selectedUrgency, userData, interveningEmergencies]);
