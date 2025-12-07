@@ -10,6 +10,8 @@ namespace server.Models
         public string Password { get; set; }
         public Image_Photo Image { get; set; }    
         public int EmergencyId { get; set; }
+        public int Reputation { get; set; }
+        public int EmergenciesCompleted { get; set; }
         // make location variable 
     }
     public class Image_Photo

@@ -100,7 +100,8 @@ namespace server.Controllers
             string sql = @"
                 UPDATE Users
                 SET Reputation = ISNULL(Reputation, 0) + @Level,
-                    EmergenciesCompleted = ISNULL(EmergenciesCompleted, 0) + 1
+                    EmergenciesCompleted = ISNULL(EmergenciesCompleted, 0) + 1,
+                    EmergencyId = 0
                 WHERE EmergencyId = @EmergencyId";
 
             using var commandUpdate = new SqlCommand(sql, connection);
