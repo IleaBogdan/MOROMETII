@@ -55,8 +55,7 @@ export async function _handleSignUp(
   setLoading: any,
   name: string,
   email: string,
-  password: string,
-  router: any
+  password: string
 ) {
   if (!name.trim() || !email.trim() || !password.trim()) {
     Alert.alert("Eroare", "Te rugăm să completezi toate câmpurile");
@@ -132,7 +131,7 @@ export async function checkLogin(username: string, password: string) {
   try {
     const encodedUsername = username.trim();
     const encodedPassword = password.trim();
-    const url = `${API_BASE}/api/UserValidator/CheckLogin?Email=${encodedUsername}&Password=${encodedPassword}`;
+    const url = `${API_BASE}/api/UserValidator/CheckLogin?Name=${encodedUsername}&Password=${encodedPassword}`;
     console.log("🔵 Checking login credentials:", url);
 
     const controller = new AbortController();

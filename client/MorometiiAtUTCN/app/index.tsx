@@ -22,7 +22,7 @@ export default function Index() {
                     if (isValid) {
                         router.replace('/(tabs)/acasa' as RelativePathString);
                     } else {
-                        await AsyncStorage.multiRemove(['email', 'password']);
+                        await AsyncStorage.multiRemove(['email', 'password', 'username']);
                         router.replace('/(tabs)/signin' as RelativePathString);
                     }
                 } else {
@@ -37,6 +37,7 @@ export default function Index() {
         };
 
         checkAuth();
+
     }, []);
     if (isChecking) {
         return (

@@ -18,7 +18,6 @@ const SignInPage: React.FC = () => {
     };
 
     const handleLogin = async () => {
-        await AsyncStorage.clear();
         const result = await handleSignIn(setLoading, username, password);
 
         if (result && result.data && result?.data.isValid) {
@@ -47,6 +46,7 @@ const SignInPage: React.FC = () => {
         <View style={styles.container}>
             {/* Logo from assets */}
             <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+
 
             <Text style={styles.title}>Autentificare</Text>
 
