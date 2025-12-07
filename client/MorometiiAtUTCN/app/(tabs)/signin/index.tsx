@@ -3,12 +3,12 @@ import { theme } from '@/theme/theme';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RelativePathString, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 
 const SignInPage: React.FC = () => {
 
-    const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -16,23 +16,26 @@ const SignInPage: React.FC = () => {
     const handleRedirectToSignUp = () => {
         router.push("/(tabs)/signup" as RelativePathString);
     };
+
     const handleLogin = async () => {
         await AsyncStorage.clear();
-        const result = await handleSignIn(setLoading, email, password);
+        const result = await handleSignIn(setLoading, username, password);
 
         if (result && result.data && result?.data.isValid) {
             await AsyncStorage.multiSet([
-                ['username', result.data.username || ''],
-                ['email', email.trim()],
+                ['username', username.trim()],
+                ['email', result.data.email || ''],
                 ['password', password.trim()],
                 ['isVerified', result.data.isVerified ? 'true' : 'false'],
                 ['certification_img', result.data.isImage === true ? 'true' : 'false'],
                 ['reputation', result.data.reputation ? (result.data.reputation).toString() : '0'],
                 ['events', result.data.emCount ? (result.data.emCount).toString() : '0'],
                 ['id', (result.data.id).toString() || '0'],
+                ['isAdmin', result.data.isAdmin === true ? 'true' : 'false'],
             ]);
-            router.push("/(tabs)/acasa" as RelativePathString);
-        } else if (result) {
+
+            router.replace("/(tabs)/acasa" as RelativePathString);
+        } else if (result?.data.error) {
             Alert.alert(
                 "Eroare de Autentificare!",
                 `Nu există acest utilizator sau datele de autentificare furnizate sunt greșite!${result.data.IsValid}`,
@@ -42,14 +45,17 @@ const SignInPage: React.FC = () => {
 
     return (
         <View style={styles.container}>
+            {/* Logo from assets */}
+            <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+
             <Text style={styles.title}>Autentificare</Text>
 
             <TextInput
                 style={styles.input}
-                placeholder="Email"
+                placeholder="Username"
                 placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
+                value={username}
+                onChangeText={setUsername}
                 keyboardType="email-address"
                 editable={!loading}
             />
@@ -131,7 +137,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#ccc",
     },
     buttonText: {
-        color: "#fff",
+        color: theme.colors.onPrimary,
         fontSize: 18,
         fontWeight: "bold",
     },
@@ -145,6 +151,15 @@ const styles = StyleSheet.create({
         color: theme.colors.secondary,
         fontWeight: "bold",
         marginLeft: 5,
+    },
+    logo: {
+        width: 250,
+        height: 250,
+        marginBottom: 20,
+        position: 'absolute',
+        top: 28,
+        zIndex: 10,
+        alignSelf: 'center',
     },
 });
 
