@@ -124,7 +124,7 @@ const TabLayout = () => {
   const pathname = usePathname();
   const isAdmin = useAdmin();
   const isOnSign = !pathname.includes("/signin") && !pathname.includes("/signup");
-  console.log(isAdmin);
+
   if (isAdmin === null) return null;
 
   return (

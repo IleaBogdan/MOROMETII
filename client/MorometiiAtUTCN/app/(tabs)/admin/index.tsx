@@ -31,7 +31,6 @@ const EmergencyDashboard = () => {
     const theme = useTheme();
 
     const [urgencies, setUrgencies] = useState<Emergency[]>([]);
-    const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -103,21 +102,47 @@ const EmergencyDashboard = () => {
             setSubmitting(false);
         }
     };
+    const handleDeletion = async (id: number) => {
+        try {
+            const res = await fetch(`${API_BASE}/api/Emergency/DeleteEmergency`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id, name: "", description: "", level: 0, location_X: 0, location_Y: 0 }),
+            });
 
-    const handleEndEmergency = async (id: number) => {
+            const data = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                console.warn('Delete failed', res.status, data);
+                setToastMessage('Failed to delete emergency.');
+                return null;
+            }
+            await handleRefreshUrgencies();
+            setToastMessage('Emergency resolved.');
+            return data;
+        } catch (error) {
+            console.error('Deletion error', error);
+            setToastMessage('Network error while deleting.');
+            return null;
+        }
+    };
+
+    const handleEndEmergency = (id: number) => {
         Alert.alert('Resolve Emergency', 'Mark this emergency as resolved?', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Resolve',
                 style: 'destructive',
-                onPress: () => {
-                    setUrgencies((prev) => prev.filter((u) => u.id !== id));
-                    setToastMessage('Emergency resolved.');
+                onPress: async () => {
+                    const result = await handleDeletion(id);
+
+                    if (!result) {
+                        console.warn('Deletion not confirmed by server');
+                    }
                 },
             },
         ]);
     };
-
     const resetForm = () => {
         setFormName('');
         setFormDesc('');
