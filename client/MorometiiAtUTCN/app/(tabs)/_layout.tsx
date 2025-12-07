@@ -107,7 +107,7 @@ const stylesBottom = StyleSheet.create({
     justifyContent: 'space-around',
     paddingBottom: 20,
     elevation: 6,
-    height: 65,
+    height: 50,
   },
   tabButton: {
     alignItems: 'center',
@@ -124,6 +124,8 @@ const TabLayout = () => {
   const pathname = usePathname();
   const isAdmin = useAdmin();
   const isOnSign = !pathname.includes("/signin") && !pathname.includes("/signup");
+
+  if (isAdmin === null) return null;
 
   return (
     <Tabs

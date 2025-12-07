@@ -297,6 +297,7 @@ const AccountPage: React.FC = () => {
 
             if (response.ok) {
                 await AsyncStorage.setItem("certification_img", "true");
+                handleRefresh();
                 setUserData(prev => prev ? { ...prev, certification_img: true, isVerified: true } : null);
                 Alert.alert("Succes!", "Diploma a fost încărcată cu succes");
                 setPhotoModalVisible(false);
