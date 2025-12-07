@@ -135,20 +135,35 @@ const AccountPage: React.FC = () => {
                 }
 
                 const result = await response.json();
-
                 if (result) {
+                    console.debug('loadUserData - server result:', result);
+
+                    const email = result?.email ?? result?.data?.email ?? '';
+                    const usernameFromResult = result?.username ?? result?.data?.username ?? result?.name ?? '';
+                    const isVerified = !!(result?.isVerified ?? result?.data?.isVerified);
+                    const isImage = !!(result?.isImage ?? result?.data?.isImage);
+                    const reputation = result?.reputation ?? result?.data?.reputation ?? 0;
+                    const emCount = result?.emCount ?? result?.data?.emCount ?? 0;
+                    const idFromResult = result?.id ?? result?.data?.id ?? null;
+                    const isAdminFlag = !!(result?.isAdmin ?? result?.data?.isAdmin);
+
+                    const storedId = await AsyncStorage.getItem('id');
+                    const idToStore = idFromResult ? String(idFromResult) : (storedId ?? '0');
+
                     await AsyncStorage.multiSet([
-                        ['username', result.username || ''],
-                        ['isVerified', result.isVerified ? 'true' : 'false'],
-                        ['certification_img', result.isImage === true ? 'true' : 'false'],
-                        ['reputation', result.reputation !== undefined ? result.reputation.toString() : '0'],
-                        ['events', result.emCount !== undefined ? result.emCount.toString() : '0'],
-                        ['id', result.id ? result.id.toString() : '0'],
-                        ['isAdmin', result.isAdmin ? 'true' : 'false'],
-                        ['email', result.data.email || ''],
+                        ['username', usernameFromResult || ''],
+                        ['isVerified', isVerified ? 'true' : 'false'],
+                        ['certification_img', isImage ? 'true' : 'false'],
+                        ['reputation', String(reputation)],
+                        ['events', String(emCount)],
+                        ['id', idToStore],
+                        ['isAdmin', isAdminFlag ? 'true' : 'false'],
+                        ['email', email],
                     ]);
 
                     await loadCachedUserData();
+                } else {
+                    console.warn('loadUserData - empty result from server');
                 }
             } catch (fetchError: any) {
                 clearTimeout(timeoutId);
@@ -282,7 +297,6 @@ const AccountPage: React.FC = () => {
 
             if (response.ok) {
                 await AsyncStorage.setItem("certification_img", "true");
-                await AsyncStorage.setItem("isVerified", "true");
                 setUserData(prev => prev ? { ...prev, certification_img: true, isVerified: true } : null);
                 Alert.alert("Succes!", "Diploma a fost încărcată cu succes");
                 setPhotoModalVisible(false);

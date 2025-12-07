@@ -103,9 +103,9 @@ export async function _handleSignUp(
         Error: data.error,
         isVerified: data.isVerified,
         isImage: data.isImage,
-        reputation: data.reputation,
-        EmCount: data.emCount,
-        isAdmin: data.isAdmin,
+        reputation: 0,
+        EmCount: 0,
+        isAdmin: 0,
       },
       response,
     };
